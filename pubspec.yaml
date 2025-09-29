@@ -1,0 +1,47 @@
+name: start_app
+description: "Devaj Tech - Official Application"
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  device_info_plus: ^11.0.0
+  cupertino_icons: ^1.0.8
+  sql_conn: 0.0.3
+  path: ^1.9.1
+  shared_preferences: ^2.5.3
+  http: ^1.5.0
+  mssql_connection: ^2.0.2
+  webview_flutter: ^4.13.0
+  flutter_animate: ^4.5.2
+  
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  sqflite: ^2.3.3+1
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1   # ✅ keep it here
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+    - assets/devaj_logo2.png   # ✅ only once
+    - assets/devaj_logo.png
+# ✅ App Icon Configuration
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/devaj_logo2.png"
+  adaptive_icon_background: "#ffffff"   # ✅ use color OR a different background image
+  adaptive_icon_foreground: "assets/devaj_logo.png"
+  remove_alpha_ios: true
+  

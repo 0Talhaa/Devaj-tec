@@ -1,0 +1,278 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:sql_conn/sql_conn.dart';
+import 'package:start_app/database_halper.dart';
+import 'package:start_app/order_screen.dart'; // order_screen.dart ko import karein
+
+class TablesPage extends StatefulWidget {
+  final String waiterName;
+  const TablesPage({super.key, required this.waiterName});
+
+  @override
+  State<TablesPage> createState() => _TablesPageState();
+}
+
+class _TablesPageState extends State<TablesPage> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _tables = [];
+  Map<String, dynamic>? _connectionDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final details = await DatabaseHelper.instance.getConnectionDetails();
+    if (details != null) {
+      _connectionDetails = details;
+      await _fetchTables();
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No database connection details found.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchTables() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await SqlConn.connect(
+        ip: _connectionDetails!['ip'] as String,
+        port: _connectionDetails!['port'] as String,
+        databaseName: _connectionDetails!['dbName'] as String,
+        username: _connectionDetails!['username'] as String,
+        password: _connectionDetails!['password'] as String,
+      );
+
+      final result = await SqlConn.readData("SELECT id, tables, table_status FROM Tables");
+      final parsedResult = jsonDecode(result) as List<dynamic>;
+      final tables = parsedResult
+          .map((row) => (row as Map<String, dynamic>))
+          .toList();
+
+      setState(() {
+        _tables = tables;
+      });
+
+      SqlConn.disconnect();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load tables: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error fetching tables: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showClosedTableDialog(String tableName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF282828),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.lock_outline,
+              color: Colors.redAccent,
+              size: 60,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '$tableName Closed Now!',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontFamily: 'Raleway',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'You Can Not Take Order This Table.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+                fontFamily: 'Raleway',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 600 ? 3 : (screenWidth < 900 ? 4 : 5);
+    final childAspectRatio = screenWidth < 600 ? 0.9 : (screenWidth < 900 ? 1.0 : 1.1);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Tables for ${widget.waiterName}'),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF0D1D20),
+        foregroundColor: Colors.white,
+      ),
+      body: Container(
+        color: const Color(0xFF0D1D20),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF75E5E2)),
+                ),
+              )
+            : _tables.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No tables found.',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: Color(0xFF75E5E2),
+                        fontFamily: 'Raleway',
+                      ),
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16.0,
+                        mainAxisSpacing: 16.0,
+                        childAspectRatio: childAspectRatio,
+                      ),
+                      itemCount: _tables.length,
+                      itemBuilder: (context, index) {
+                        final table = _tables[index];
+                        final isClosed = (table['table_status'] as String).trim().toLowerCase() == 'close';
+                        final cardColor = isClosed ? const Color(0xFF422020) : const Color(0xFF204220);
+                        final icon = isClosed ? Icons.lock_outline : Icons.lock_open_outlined;
+
+                        return InkWell(
+                          onTap: () {
+                            if (isClosed) {
+                              _showClosedTableDialog(table['tables'] as String);
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => OrderScreen(
+                                    waiterName: widget.waiterName,
+                                    tableId: table['id'] as int,
+                                    tableName: table['tables'] as String,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: isClosed
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFF422020), Color(0xFF282828)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : const LinearGradient(
+                                      colors: [Color(0xFF204220), Color(0xFF132B13)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isClosed ? const Color(0xFF422020) : const Color(0xFF204220)).withOpacity(0.4),
+                                  spreadRadius: 2,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  icon,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  table['tables'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontFamily: 'Raleway',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isClosed ? 'Closed' : 'Open Now',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white70,
+                                    fontFamily: 'Raleway',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _fetchTables,
+        backgroundColor: const Color(0xFF75E5E2),
+        foregroundColor: const Color(0xFF0D1D20),
+        child: const Icon(Icons.refresh),
+      ),
+    );
+  }
+}
