@@ -8,7 +8,12 @@ class DashboardScreen extends StatelessWidget {
   final int tiltId;
   final String tiltName;
 
-  const DashboardScreen({super.key, required this.userName, required this.tiltId, required this.tiltName});
+  const DashboardScreen({
+    super.key,
+    required this.userName,
+    required this.tiltId,
+    required this.tiltName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +31,7 @@ class DashboardScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0D1D20),
-              Color(0xFF1D3538),
-            ],
+            colors: [Color(0xFF0D1D20), Color(0xFF1D3538)],
           ),
         ),
         child: LayoutBuilder(
@@ -123,32 +125,32 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDashboardButton(
-                        context,
-                        'New Orders',
-                        Icons.add_shopping_cart,
-                        const NewOrdersPage(),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildDashboardButton(
-                        context,
-                        'Running Orders',
-                        Icons.delivery_dining,
-                        const RunningOrdersPage(),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildDashboardButton(
-                        context,
-                        'Open Web View',
-                        Icons.public,
-                        const WebViewScreen(url: 'http://163.61.91.48:5000/'), // Naya button
-                      ),
-                    ],
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildDashboardButton(
+                          context,
+                          'New Orders',
+                          Icons.add_shopping_cart,
+                          const NewOrdersPage(),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildDashboardButton(
+                          context,
+                          'Running Orders',
+                          Icons.delivery_dining,
+                          const RunningOrdersPage(),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildDashboardButton(
+                          context,
+                          'Open Web View',
+                          Icons.public,
+                          const WebViewScreen(url: 'http://163.61.91.48:5000/'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -216,7 +218,9 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   'Open Web View',
                   Icons.public,
-                  const WebViewScreen(url: 'http://163.61.91.48:5000/'), // Naya button
+                  const WebViewScreen(
+                    url: 'http://163.61.91.48:5000/',
+                  ), // Naya button
                 ),
                 const SizedBox(height: 24),
               ],
@@ -228,13 +232,14 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildDashboardButton(
-      BuildContext context, String title, IconData icon, Widget page) {
+    BuildContext context,
+    String title,
+    IconData icon,
+    Widget page,
+  ) {
     return ElevatedButton.icon(
       onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => page),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (context) => page));
       },
       icon: Icon(icon, color: const Color(0xFF0D1D20), size: 28),
       label: Text(
@@ -249,9 +254,7 @@ class DashboardScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF75E5E2),
         foregroundColor: const Color(0xFF0D1D20),
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 10,
         shadowColor: Colors.black.withOpacity(0.5),
       ),

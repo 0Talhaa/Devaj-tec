@@ -1,4 +1,4 @@
-// ignore_for_file: unused_local_variable, unused_element
+// ignore_for_file: unused_local_variable, unused_element, use_build_context_synchronously
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -40,6 +40,9 @@ class _OrderScreenState extends State<OrderScreen>
   Map<String, List<Map<String, dynamic>>> _categoryItems = {};
   List<Map<String, dynamic>> _categories = [];
   String? _selectedCategory;
+  String _currentUser = "Admin";
+  String _deviceNo = "POS01";
+  int _isPrintKot = 1;
   Map<String, dynamic>? _connectionDetails;
   late TabController _tabController;
   final List<Map<String, dynamic>> _currentOrder = [];
@@ -53,6 +56,7 @@ String? _finalTiltName;
 void initState() {
   super.initState();
   _initConnectionAndLoadData();
+  _loadConnectionDetails();
   _loadTiltFromLocal();
 }
 
@@ -61,7 +65,16 @@ void initState() {
     _tabController.dispose();
     super.dispose();
   }
+  Future<void> _loadConnectionDetails() async {
+    Map<String, dynamic>? connDetails =
+        await DatabaseHelper.instance.getConnectionDetails();
 
+    setState(() {
+      _currentUser = connDetails?['user'] ?? 'Admin';
+      _deviceNo = connDetails?['deviceName'] ?? 'POS01';
+      _isPrintKot = connDetails?['isPrintKot'] ?? 1;
+    });
+  }
   Future<void> _initConnectionAndLoadData() async {
     await _setupSqlConn(); // ✅ wait for connection
     await _loadData(); // ✅ ab local data load karo
@@ -282,28 +295,24 @@ Future<void> _loadTiltFromLocal() async {
               ),
               onPressed: () {
                 final newComment = _commentController.text.trim();
-                setState(() {
-                  // If item already in _currentOrder, update its comment
-                  final idx = _currentOrder.indexWhere(
-                    (o) => o['id'] == item['id'],
-                  );
-                  if (idx != -1) {
-                    _currentOrder[idx]['Comments'] = newComment;
-                  } else {
-                    // If not in cart yet, add it with quantity 1 and the comment
-                 _currentOrder.add({
-                  'id': item['id'],
-                  'item_name': item['item_name'],
-                  'sale_price': (item['sale_price'] ?? 0).toDouble(),
-                  'quantity': 1,
-                  'tax_percent': (item['tax_percent'] ?? 0).toDouble(),
-                  'discount_percent': (item['discount_percent'] ?? 0).toDouble(),
-                  'Comments': newComment.isNotEmpty ? newComment : "No Comments",
-                });
+         setState((){
+          final idx = _currentOrder.indexWhere((o) => o['id'] == item['id']);
+          if (idx != -1) {
+            _currentOrder[idx]['Comments'] = newComment;
+          } else {
+            _currentOrder.add({
+              'id': item['id'],
+              'item_name': item['item_name'],
+              'sale_price': (item['sale_price'] ?? 0).toDouble(),
+              'quantity': 1,
+              'tax_percent': 5.0, // ✅ default 5%
+              'discount_percent': 0.0,
+              'Comments': newComment.isNotEmpty ? newComment : "No Comments",
+            });
+          }
+          _calculateTotalBill(); // ✅ yahan bhi bill refresh
+        });
 
-
-                  }
-                });
 
                 Navigator.of(ctx).pop();
               },
@@ -316,26 +325,28 @@ Future<void> _loadTiltFromLocal() async {
 
   }
 
-  void _addItemToOrder(Map<String, dynamic> item) {
-    setState(() {
-      final idx = _currentOrder.indexWhere((o) => o['id'] == item['id']);
-      if (idx != -1) {
-        _currentOrder[idx]['quantity'] =
-            (_currentOrder[idx]['quantity'] ?? 0) + 1;
-      } else {
-        _currentOrder.add({
-          'id': item['id'],
-          'item_name': item['item_name'],
-          'sale_price': (item['sale_price'] ?? 0).toDouble(),
-          'quantity': 1,
-          'tax_percent': (item['tax_percent'] ?? 0).toDouble(),
-          'discount_percent': (item['discount_percent'] ?? 0).toDouble(),
-          'Comments': '', // 👈 default empty comment
-        });
+void _addItemToOrder(Map<String, dynamic> item) {
+  setState(() {
+    final idx = _currentOrder.indexWhere((o) => o['id'] == item['id']);
+    if (idx != -1) {
+      _currentOrder[idx]['quantity'] =
+          (_currentOrder[idx]['quantity'] ?? 0) + 1;
+      _updateItemCalculation(_currentOrder[idx]); // ✅ update tax/discount
+    } else {
+      _currentOrder.add({
+        'id': item['id'],
+        'item_name': item['item_name'],
+        'sale_price': (item['sale_price'] ?? 0).toDouble(),
+        'quantity': 1,
+        'tax_percent': 5.0, // ✅ default 5%
+        'discount_percent': 0.0,
+        'Comments': '',
+      });
+    }
+    _calculateTotalBill(); // ✅ bill update karo
+  });
+}
 
-      }
-    });
-  }
 
   void _decreaseItemQuantity(int itemId) {
     setState(() {
@@ -407,6 +418,9 @@ Future<void> _loadTiltFromLocal() async {
     _mssql = MssqlConnection.getInstance();
 
     final details = await DatabaseHelper.instance.getConnectionDetails();
+    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+    print("🔎 Connection Details => $connDetails");
+
     final tiltId = details?['tiltId'] ?? "";
     final tiltName = details?['tiltName'] ?? "";
     if (details == null) {
@@ -441,199 +455,163 @@ Future<void> _loadTiltFromLocal() async {
     }
   }
 
-  // ye Store Procedure hai
-  Future<int?> _saveOrderToSqlServer() async {
-    if (_currentOrder.isEmpty) return null;
+Future<int?> _saveOrderToSqlServer() async {
+  if (_currentOrder.isEmpty) return null;
 
-    // 1️⃣ Format current date
-    final now = DateTime.now();
-    final formattedDate =
-        "${now.year.toString().padLeft(4, '0')}-"
-        "${now.month.toString().padLeft(2, '0')}-"
-        "${now.day.toString().padLeft(2, '0')} "
-        "${now.hour.toString().padLeft(2, '0')}:"
-        "${now.minute.toString().padLeft(2, '0')}:"
-        "${now.second.toString().padLeft(2, '0')}";
+  final now = DateTime.now();
+  final formattedDate =
+      "${now.year.toString().padLeft(4, '0')}-"
+      "${now.month.toString().padLeft(2, '0')}-"
+      "${now.day.toString().padLeft(2, '0')} "
+      "${now.hour.toString().padLeft(2, '0')}:"
+      "${now.minute.toString().padLeft(2, '0')}:"
+      "${now.second.toString().padLeft(2, '0')}";
 
-   
-    // final prodItemCodes = _currentOrder
-    //     .map((item) => item['id'].toString())
-    //     .join(",");
-    // final qtyList = _currentOrder
-    //     .map((item) => item['quantity'].toString())
-    //     .join(",");
-    // final orderDtlIds = _currentOrder
-    //     .map((item) => item['orderDtlId']?.toString() ?? "0")
-    //     .join(",");
-    // final commentList = _currentOrder.map((e) => e['Comments'] ?? "No Comments").join(",");
-
-    // 5️⃣ Generate unique tab ID for this order
-    // final tabUniqueId = DateTime.now().millisecondsSinceEpoch.toString();
-    final conn = await DatabaseHelper.instance.getConnectionDetails();
-    final tiltId = int.tryParse(conn?['tilId'] ?? "0") ?? 0; // ✅ id as int
-    final tiltName =
-        conn?['tiltName'] ?? "Unknown"; // ✅ TiltName yahan mil jayega
+  // ✅ Get connection details
+final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
+setState(() {
+  _currentUser = loggedUser ?? "Admin";
+});
+// String currentUser = connDetails?['username'] ?? 'Admin';   // 👈 user ki jagah username
+String deviceNo = (connDetails?['deviceName']?.isNotEmpty ?? false)
+    ? connDetails!['deviceName']
+    : 'POS01';  // 👈 agar khali hai to default POS01
+int isPrintKot = connDetails?['isCashier'] ?? 1;  // 👈 agar isCashier use karna hai
+int tiltId = int.tryParse(connDetails?['tiltId'] ?? "0") ?? 0;
+String tiltName = connDetails?['tiltName'] ?? "Unknown";
 
 
-final tabUniqueId = DateTime.now().millisecondsSinceEpoch.toString();
+  final tabUniqueId = DateTime.now().millisecondsSinceEpoch.toString();
 
-// qty2 list
-final qtyList = _currentOrder.map((e) => e['quantity'].toString()).join(",");
+  // ✅ Build lists
+  final qtyList = _currentOrder.map((e) => e['quantity'].toString()).join(",");
+  final prodItemCodes = _currentOrder.map((e) => e['id'].toString()).join(",");
+  final orderDtlIds = _currentOrder.map((e) => "0").join(",");
+  final commentList = _currentOrder
+      .map((e) => (e['Comments'] ?? "No Comment").toString())
+      .join(",");
+      
 
-// product codes list
-final prodItemCodes = _currentOrder.map((e) => e['id'].toString()).join(",");
+  // ✅ Final query (param names fixed)
+      String query = """
+      DECLARE @OrderKey INT;
+      EXEC uspInsertDineInOrderAndriod_Sep
+          @TiltId = $tiltId,
+          @CounterId = 0,
+          @Waiter = '${widget.waiterName}',
+          @TableNo = '${widget.tableName}',
+          @cover = ${widget.customerCount},
+          @tab_unique_id = '$tabUniqueId',
+          @device_no = '$deviceNo',
+          @totalAmount = $_totalBill,
+          @qty2 = '$qtyList',
+          @proditemcode = '$prodItemCodes',
+          @OrderDtlID = '$orderDtlIds',
+          @User = '$_currentUser',
+          @IsPrintKOT = $isPrintKot,
+          @OrderType = 'DINE IN',
+          @Customer = 'WalkIn',
+          @Tele = '',
+          @Comment = '$commentList',
+          @OrderKey = @OrderKey OUTPUT;
 
-// order detail IDs (default 0 if new)
-final orderDtlIds = _currentOrder.map((e) => "0").join(",");
+      SELECT @OrderKey AS id;
+      """;
 
-// comments list (default "No Comment" if empty)
-final commentList = _currentOrder.map((e) => (e['Comments'] ?? "No Comment").toString()).join(",");
-        String query = """
-        DECLARE @OrderKey INT;
-        EXEC uspInsertDineInOrderAndriod_Sep
-            @TiltId = ${_finalTiltId},
-            @CounterId = 0,
-            @Waiter = '${widget.waiterName}',
-            @TableNo = '${widget.tableName}',
-            @cover = ${widget.customerCount},
-            @tab_unique_id = '$tabUniqueId',
-            @device_no = 'POS01',
-            @totalAmount = $_totalBill,
-            @qty2 = '$qtyList',
-            @proditemcode = '$prodItemCodes',
-            @OrderDtlID = '$orderDtlIds',
-            @User = 'Admin',
-            @IsPrintKOT = 1,
-            @OrderType = 'DineIn',
-            @Customer = 'WalkIn',
-            @Tele = '',
-            @Comments = '$commentList',  -- ✅ comma separated list
-            @OrderKey = @OrderKey OUTPUT;
 
-        SELECT @OrderKey AS id;
-        """;
-    // 🐞 Debug: print full query to check actual SQL
-    print("===== FINAL QUERY =====");
-    print(query);
+
+  debugPrint("===== FINAL QUERY =====\n$query");
+  print("📝 Qty List => $qtyList");
+  print("📝 Product Codes => $prodItemCodes");
+  print("📝 Comments => $commentList");
+
+
+  try {
+    String result = await _mssql.getData(query);
+    int? newOrderId;
 
     try {
-      String result = await _mssql.getData(query);
-      int? newOrderId;
-
-      // 7️⃣ Parse returned Order ID
-      try {
-        final decoded = jsonDecode(result);
-        if (decoded is List && decoded.isNotEmpty) {
-          newOrderId = int.tryParse(decoded[0]['id'].toString());
-        } else if (decoded is Map && decoded['id'] != null) {
-          newOrderId = int.tryParse(decoded['id'].toString());
-        } else {
-          newOrderId = int.tryParse(result.trim());
-        }
-      } catch (_) {
+      final decoded = jsonDecode(result);
+      if (decoded is List && decoded.isNotEmpty) {
+        newOrderId = int.tryParse(decoded[0]['id'].toString());
+      } else if (decoded is Map && decoded['id'] != null) {
+        newOrderId = int.tryParse(decoded['id'].toString());
+      } else {
         newOrderId = int.tryParse(result.trim());
       }
+    } catch (_) {
+      newOrderId = int.tryParse(result.trim());
+    }
 
-      // 8️⃣ Clear current order and totals
-      setState(() {
-        _currentOrder.clear();
-        _totalBill = 0.0;
-        _totalTax = 0.0;
-        _totalDiscount = 0.0;
-      });
+    setState(() {
+      _currentOrder.clear();
+      _totalBill = 0.0;
+      _totalTax = 0.0;
+      _totalDiscount = 0.0;
+    });
 
-      // 9️⃣ Show success dialog
-      if (mounted && newOrderId != null && newOrderId > 0) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              backgroundColor: const Color(0xFF0D1D20),
-              title: Column(
-                children: const [
-                  Icon(
-                    Icons.check_circle_outline,
-                    color: Color(0xFF75E5E2),
-                    size: 60,
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "Success!",
-                    style: TextStyle(
+    if (mounted && newOrderId != null && newOrderId > 0) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: const Color(0xFF0D1D20),
+          title: Column(
+            children: const [
+              Icon(Icons.check_circle_outline,
+                  color: Color(0xFF75E5E2), size: 60),
+              SizedBox(height: 10),
+              Text("Success!",
+                  style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Raleway',
-                    ),
-                  ),
-                ],
-              ),
-              content: const Text(
-                "Your Order Successfully Placed",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  fontFamily: 'Raleway',
-                ),
-              ),
-              actions: [
-                Center(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF75E5E2),
-                      foregroundColor: Color(0xFF0D1D20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: () async {
-                      final orderId =
-                          await _saveOrderToSqlServer(); // ✅ order save karo
-
-                      if (orderId != null && orderId > 0) {
-                        // ✅ Agar order save ho gaya
-                        Navigator.of(
-                          context,
-                        ).pop(); // dialog ya current screen close
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BillScreen(),
-                          ), // BillScreen kholo
-                        );
-                      } else {
-                        // ❌ Agar save na ho to error show karo
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("❌ Failed to place order"),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text("View Bill"),
+                      fontFamily: 'Raleway')),
+            ],
+          ),
+          content: const Text(
+            "Your Order Successfully Placed",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontFamily: 'Raleway',
+            ),
+          ),
+          actions: [
+            Center(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF75E5E2),
+                  foregroundColor: Color(0xFF0D1D20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-              ],
-            );
-          },
-        );
-      }
-
-      return newOrderId;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error placing order: $e')));
-      }
-      return null;
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("OK"),
+              ),
+            ),
+          ],
+        ),
+      );
     }
+
+    return newOrderId;
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error placing order: $e')),
+      );
+    }
+    return null;
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -679,15 +657,6 @@ final commentList = _currentOrder.map((e) => (e['Comments'] ?? "No Comment").toS
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // const Text(
-                //   'Current Order',
-                //   style: TextStyle(
-                //     fontSize: 24,
-                //     fontWeight: FontWeight.bold,
-                //     color: Color(0xFF75E5E2),
-                //     fontFamily: 'Raleway',
-                //   ),
-                // ),
                 const Divider(color: Colors.white24),
                 _buildOrderListWithDetails(),
                 _buildSummaryRow('Total Items', '${_currentOrder.length}'),
@@ -724,92 +693,80 @@ final commentList = _currentOrder.map((e) => (e['Comments'] ?? "No Comment").toS
                   ],
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _currentOrder.isEmpty
-                      ? null
-                      : () async {
-                          int? newOrderId = await _saveOrderToSqlServer();
+ElevatedButton(
+  onPressed: _currentOrder.isEmpty
+      ? null
+      : () async {
+          int? newOrderId = await _saveOrderToSqlServer();
 
-                          if (newOrderId != null) {
-                            // Success dialog show karo
-                            showDialog(
-                              context: context,
-                              barrierDismissible:
-                                  false, // bahar tap se close na ho
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  backgroundColor: Colors.white,
-                                  title: Column(
-                                    children: const [
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green,
-                                        size: 60,
-                                      ),
-                                      SizedBox(height: 10),
-                                      Text(
-                                        "Order Placed!",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 22,
-                                          fontFamily: "Raleway",
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  content: const Text(
-                                    "Your order has been placed successfully.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  actions: [
-                                    Center(
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFF75E5E2,
-                                          ),
-                                          foregroundColor: const Color(
-                                            0xFF0D1D20,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.of(
-                                            context,
-                                          ).pop(); // dialog band karo
-                                          // BillScreen par le jao
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => BillScreen(),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text("View Bill"),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Failed to save order. Please try again.",
-                                ),
-                              ),
-                            );
-                          }
+          if (newOrderId != null) {
+            // ✅ Order placed successfully
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  backgroundColor: Colors.white,
+                  title: Column(
+                    children: const [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 60,
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "Order Placed!",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          fontFamily: "Raleway",
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: const Text(
+                    "Your order has been placed successfully.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  actions: [
+                    Center(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF75E5E2),
+                          foregroundColor: Color(0xFF0D1D20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BillScreen(),
+                            ),
+                          );
                         },
+                        child: const Text("View Bill"),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("❌ Failed to place order"),
+              ),
+            );
+          }
+        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF75E5E2),
                     foregroundColor: const Color(0xFF0D1D20),
@@ -1216,13 +1173,6 @@ final commentList = _currentOrder.map((e) => (e['Comments'] ?? "No Comment").toS
                 ],
               ),
               const SizedBox(height: 16),
-
-              //               ElevatedButton(
-              //   onPressed: (_currentOrder.isEmpty || !_isMssqlReady)
-              //       ? null
-              //       : _saveOrderToSqlServer,
-              //   child: const Text('Place Order'),
-              // )
               ElevatedButton(
                 onPressed: _currentOrder.isEmpty ? null : _saveOrderToSqlServer,
                 style: ElevatedButton.styleFrom(

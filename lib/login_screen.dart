@@ -6,15 +6,16 @@ import 'package:start_app/database_halper.dart';
 import 'package:start_app/main.dart'; // ConnectionForm ke liye import karna zaroori hai
 
 class LoginScreen extends StatefulWidget {
-    final int tiltId;
+  final int tiltId;
   final String tiltName;
-  const LoginScreen({super.key,required this.tiltId, required this.tiltName});
+  const LoginScreen({super.key, required this.tiltId, required this.tiltName});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -118,7 +119,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _login() async {
-    if (_formKey.currentState!.validate() && _selectedUser != null && _connectionDetails != null) {
+    if (_formKey.currentState!.validate() &&
+        _selectedUser != null &&
+        _connectionDetails != null) {
       setState(() {
         _isConnecting = true;
       });
@@ -132,10 +135,24 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           password: _connectionDetails!['password'] as String,
         );
 
-        final loginQuery = "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
+        final loginQuery =
+            "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
         final loginResult = await SqlConn.readData(loginQuery);
 
         if (jsonDecode(loginResult).isNotEmpty) {
+          // ❌ Admin ko login allow nahi karna
+          if (_selectedUser?.toLowerCase() == "admin") {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Admin login is not allowed."),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return; // 🚫 Login process yahin stop
+          }
+
           if (mounted) {
             await _syncDataAndLogin();
           }
@@ -174,23 +191,29 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   Future<void> _syncDataAndLogin() async {
     try {
-      final categoriesEmpty = await DatabaseHelper.instance.isCategoriesTableEmpty();
+      final categoriesEmpty = await DatabaseHelper.instance
+          .isCategoriesTableEmpty();
       final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
 
       if (categoriesEmpty || itemsEmpty) {
-        final categoryResult = await SqlConn.readData("SELECT id, category_name FROM CategoryPOS");
+        final categoryResult = await SqlConn.readData(
+          "SELECT id, category_name FROM CategoryPOS",
+        );
         final cleanedCategoryResult = _cleanString(categoryResult);
-        final categories = (jsonDecode(cleanedCategoryResult) as List<dynamic>).cast<Map<String, dynamic>>();
+        final categories = (jsonDecode(cleanedCategoryResult) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         await DatabaseHelper.instance.saveCategories(categories);
         print('Categories saved locally successfully.');
 
-        final itemQuery = "SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply "
+        final itemQuery =
+            "SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply "
             "FROM itempos i "
             "LEFT JOIN categorypos c ON i.category_name = c.category_name "
             "WHERE i.status = '1';";
         final itemResult = await SqlConn.readData(itemQuery);
         final cleanedItemResult = _cleanString(itemResult);
-        final items = (jsonDecode(cleanedItemResult) as List<dynamic>).cast<Map<String, dynamic>>();
+        final items = (jsonDecode(cleanedItemResult) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         await DatabaseHelper.instance.saveItems(items);
         print('Items saved locally successfully.');
       } else {
@@ -198,17 +221,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       }
 
       if (mounted) {
-                Navigator.pushReplacement(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => DashboardScreen(
               userName: _selectedUser!,
-              tiltId: widget.tiltId,       // ✅ yahan pass karo
-              tiltName: widget.tiltName,   // ✅ yahan pass karo
+              tiltId: widget.tiltId, // ✅ yahan pass karo
+              tiltName: widget.tiltName, // ✅ yahan pass karo
             ),
           ),
         );
-
       }
     } catch (e) {
       print('Error during data synchronization: $e');
@@ -252,9 +274,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             // taki keyboard aane par overflow na ho
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(21.0),
-                child: Center(
-                  child: _buildSmallScreenLayout(),
-                ),
+                child: Center(child: _buildSmallScreenLayout()),
               ),
       ),
     );
@@ -263,9 +283,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Widget _buildLargeScreenLayout() {
     return Card(
       elevation: 20,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       color: const Color(0xFF282828),
       child: IntrinsicHeight(
         child: Row(
@@ -349,9 +367,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
     return Card(
       elevation: 20,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       color: const Color(0xFF282828),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -366,7 +382,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   scale: _pulseAnimation.value,
                   child: Image.asset(
                     'assets/devaj_logo.png',
-                    height: logoHeight, // Logo ki height ko orientation ke hisab se adjust karein
+                    height:
+                        logoHeight, // Logo ki height ko orientation ke hisab se adjust karein
                   ),
                 );
               },
@@ -402,7 +419,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               labelText: 'Select User',
               prefixIcon: Icon(Icons.person),
             ),
-            style: const TextStyle(color: Color(0xFF75E5E2), fontFamily: 'Raleway'),
+            style: const TextStyle(
+              color: Color(0xFF75E5E2),
+              fontFamily: 'Raleway',
+            ),
             dropdownColor: const Color(0xFF282828),
             items: _users.map((user) {
               return DropdownMenuItem<String>(
@@ -426,13 +446,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            style: const TextStyle(color: Color(0xFF75E5E2), fontFamily: 'Raleway'),
+            style: const TextStyle(
+              color: Color(0xFF75E5E2),
+              fontFamily: 'Raleway',
+            ),
             decoration: InputDecoration(
               labelText: 'Password',
               hintText: 'Enter your password',
               prefixIcon: const Icon(Icons.lock),
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                ),
                 onPressed: () {
                   setState(() {
                     _obscurePassword = !_obscurePassword;
@@ -440,7 +465,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 },
               ),
             ),
-            validator: (value) => value!.isEmpty ? 'Please enter password' : null,
+            validator: (value) =>
+                value!.isEmpty ? 'Please enter password' : null,
           ),
           const SizedBox(height: 32),
           ElevatedButton(
@@ -449,7 +475,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               minimumSize: const Size(double.infinity, 55),
               backgroundColor: const Color(0xFF75E5E2),
               foregroundColor: const Color(0xFF0D1D20),
-              textStyle: const TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.bold),
+              textStyle: const TextStyle(
+                fontFamily: 'Raleway',
+                fontWeight: FontWeight.bold,
+              ),
             ),
             child: _isConnecting
                 ? const SizedBox(
@@ -463,12 +492,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 : const Text('Login'),
           ),
           const SizedBox(height: 20),
-          TextButton(
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const ConnectionForm()),
-              );
+          GestureDetector(
+            onTap: () async {
+              // Purani details clear karo
+              await DatabaseHelper.instance.clearConnectionDetails();
+
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                  (route) => false, // saari purani routes hata do
+                );
+              }
             },
             child: const Text(
               'Change Connection Details',

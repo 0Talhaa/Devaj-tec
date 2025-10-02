@@ -372,99 +372,87 @@ class _ConnectionFormState extends State<ConnectionForm>
     }
   }
 
-  Future<void> _connectToSqlServer() async {
-    if (!_formKey.currentState!.validate() || _selectedTiltId == null) {
+Future<void> _connectToSqlServer() async {
+  if (!_formKey.currentState!.validate() || _selectedTiltId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please fill all fields and select a Tilt.'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    _isConnecting = true;
+  });
+
+  try {
+    // Step 1: SQL connect
+    if (!await SqlConn.isConnected) {
+      await SqlConn.connect(
+        ip: _ipController.text,
+        port: _portController.text,
+        databaseName: _dbNameController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+      );
+      debugPrint("✅ SQL Connected!");
+    }
+
+    // Step 2: Device info fetch
+    final deviceInfo = await DeviceHelper.getDeviceInfo(context);
+    final deviceName = deviceInfo["DeviceName"] ?? "Unknown Device";
+
+    // Step 3: Save details including deviceName
+    await DatabaseHelper.instance.saveConnectionDetails(
+      ip: _ipController.text,
+      serverName: 'Your_Default_Server_Name',
+      dbName: _dbNameController.text,
+      username: _usernameController.text,
+      password: _passwordController.text,
+      port: _portController.text,
+      tiltId: _selectedTiltId.toString(),
+      tiltName: _selectedTiltName ?? 'N/A',
+      deviceName: deviceName,   // 👈 ab device model save ho jayega
+      isCashier: 1,
+    );
+
+    debugPrint("✅ Connection details + DeviceName ($deviceName) saved to DB");
+
+    // Step 4: Clear users & navigate
+    await DatabaseHelper.instance.clearTblUser();
+
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields and select a Tilt.'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
+        SnackBar(
+          content: Text('Connected successfully! Device: $deviceName'),
+          backgroundColor: Colors.green,
         ),
       );
-      return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginScreen(
+            tiltId: _selectedTiltId!,
+            tiltName: _selectedTiltName ?? '',
+          ),
+        ),
+      );
     }
 
-    setState(() {
-      _isConnecting = true;
-    });
-
-    try {
-      // 1. Connection attempt
-      // ignore: await_only_futures
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: _ipController.text,
-          port: _portController.text,
-          databaseName: _dbNameController.text,
-          username: _usernameController.text,
-          password: _passwordController.text,
-        );
-        debugPrint("✅ SQL Connected!");
-      }
-
-      // 2. Save connection details and Tilt info
-          await DatabaseHelper.instance.saveConnectionDetails(
-          ip: _ipController.text,
-          serverName: 'Your_Default_Server_Name',
-          dbName: _dbNameController.text,
-          username: _usernameController.text,
-          password: _passwordController.text,
-          port: _portController.text,
-          tiltId: _selectedTiltId.toString(), // ✅ save tilt id
-          tiltName: _selectedTiltName ?? 'N/A',        // ✅ save tilt name
-          deviceName: "",
-          isCashier: 1,
-        );
-      debugPrint("✅ Connection details & Tilt saved to local DB.");
-
-      // 3. Clear existing user data (Agar zaroori ho)
-      await DatabaseHelper.instance.clearTblUser();
-
-      // 4. Navigation
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connected successfully! Details & Tilt saved.'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
-        final details = await DatabaseHelper.instance.getConnectionDetails();
-        final tiltId = int.tryParse(details?['tiltId'] ?? "0") ?? 0;
-        final tiltName = details?['tiltName'] ?? "";
-
-        Navigator.pushReplacement(
-          // ignore: use_build_context_synchronously
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                LoginScreen(tiltId: tiltId, tiltName: tiltName),
-          ),
-        );
-      }
-
-      // 5. Disconnect (Optional, agar connection sirf temporary chahiye tha)
-      await SqlConn.disconnect();
-    } catch (e) {
-      debugPrint('❌ Connection or Save Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connection failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isConnecting = false;
-        });
-      }
+    await SqlConn.disconnect();
+  } catch (e) {
+    debugPrint('❌ Connection or Save Error: $e');
+  } finally {
+    if (mounted) {
+      setState(() => _isConnecting = false);
     }
   }
+}
+
 
   // --- UI Build Methods ---
 
