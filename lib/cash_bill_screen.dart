@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:intl/intl.dart';
 
+import 'database_halper.dart';
+
 class CashBillScreen extends StatefulWidget {
   final String orderNo;
   const CashBillScreen({super.key, required this.orderNo});
@@ -42,10 +44,22 @@ class _CashBillScreenState extends State<CashBillScreen> {
     }
     return 0.0;
   }
+ 
+  
 
 Future<void> _fetchBillData() async {
   try {
     // 1. Order Details Fetching
+  final conn = await DatabaseHelper.instance.getConnectionDetails();
+      if (!await SqlConn.isConnected) {
+      await SqlConn.connect(
+        ip: conn!['ip'],
+        port: conn['port'],
+        databaseName: conn['dbName'],
+        username: conn['username'],
+        password: conn['password'],
+      );
+    }
     final detailsQuery = "EXEC uspGetOrderDetails '${widget.orderNo}'";
     final detailsResult = await SqlConn.readData(detailsQuery);
     final parsedDetails = jsonDecode(detailsResult) as List<dynamic>;

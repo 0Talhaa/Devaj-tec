@@ -239,7 +239,8 @@ void onProceed() {
         tableId: (table['id'] ?? 0) as int,
         tableName: table['tables'] as String,
         customerCount: customerCount,
-        selectedTiltId: _selectedTiltId ?? 0, // ✅ add this
+        selectedTiltId: _selectedTiltId ?? 0,
+        tabUniqueId: null,
       ),
     ),
   );

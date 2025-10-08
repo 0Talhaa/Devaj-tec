@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/cash_bill_screen.dart';
+import 'package:start_app/order_screen.dart' show OrderScreen;
+// 1. New Import: EditOrderScreen ko import karein
+import 'edit_order_screen.dart';
 
 class RunningOrdersPage extends StatefulWidget {
   const RunningOrdersPage({super.key});
@@ -15,6 +18,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
   bool _loading = true;
   List<Map<String, dynamic>> _orders = [];
   String? _error;
+  Map<String, dynamic>? _connDetails;
 
   @override
   void initState() {
@@ -22,29 +26,48 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
     _fetchOrders();
   }
 
-  Future<void> _fetchOrders() async {
-    try {
+  @override
+  void dispose() {
+    SqlConn.disconnect(); // ✅ Page close hone pe hi connection band hoga
+    super.dispose();
+  }
+
+  // Helper function to handle connection logic
+  Future<bool> _ensureConnection() async {
+    if (_connDetails == null) {
       final conn = await DatabaseHelper.instance.getConnectionDetails();
       if (conn == null) {
         setState(() {
           _error = "⚠️ No saved connection details found.";
           _loading = false;
         });
-        return;
+        return false;
       }
+      _connDetails = conn;
+    }
 
-      // Connect if not already connected
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: conn['ip'],
-          port: conn['port'],
-          databaseName: conn['dbName'],
-          username: conn['username'],
-          password: conn['password'],
-        );
-      }
+    if (!await SqlConn.isConnected) {
+      await SqlConn.connect(
+        ip: _connDetails!['ip'],
+        port: _connDetails!['port'],
+        databaseName: _connDetails!['dbName'],
+        username: _connDetails!['username'],
+        password: _connDetails!['password'],
+      );
+    }
+    return true;
+  }
 
-      // Call stored procedure
+  // Fetches the summary list of running orders
+  Future<void> _fetchOrders() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      if (!await _ensureConnection()) return;
+
+      // Call stored procedure to get list of orders
       const query = "EXEC uspGetOrderList";
       final result = await SqlConn.readData(query);
 
@@ -63,6 +86,78 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
     }
   }
 
+  // 2. New Function: Fetches detailed items for a specific order
+  Future<List<Map<String, dynamic>>?> _fetchOrderItems(
+    String tabUniqueId,
+  ) async {
+    try {
+      if (!await _ensureConnection()) return null;
+
+      final query =
+          """
+      select distinct 
+          d.itemid as itemId,
+          d.item_name as itemName,
+          d.qty as itemQuantity,
+          d.Comments as comments,
+          (isnull(d.Qty,0) * isnull(i.sale_price,0)) as itemTotal,
+          d.id as orderDetailId,
+          d.tax as tax,
+          (select KotStatus from OrderKot where OrderDetailId=d.id) as kotstatus,
+          1 as is_upload,
+          i.sale_price as itemPrice
+      from order_detail d
+      inner join dine_in_order m on d.order_key = m.order_key
+      inner join itempos i on i.id = d.itemid
+      where m.tab_unique_id = '$tabUniqueId'
+    """;
+
+      final result = await SqlConn.readData(query);
+
+      final decoded = jsonDecode(result) as List<dynamic>;
+      return decoded.cast<Map<String, dynamic>>();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching order details: $e')),
+      );
+      return null;
+    }
+  }
+
+  // 3. New Function: Navigation to EditOrderScreen
+  Future<void> _navigateToEditScreen(Map<String, dynamic> order) async {
+    try {
+      final String tabUniqueId = order["tab_unique_id"]?.toString() ?? "";
+      final String tableName = order["table_no"]?.toString() ?? "N/A";
+      final int tableId =
+          int.tryParse(order["table_id"]?.toString() ?? "0") ?? 0;
+      final int customerCount =
+          int.tryParse(order["cover"]?.toString() ?? "1") ?? 1;
+      final int? selectedTiltId = order["tilt_id"] != null
+          ? int.tryParse(order["tilt_id"].toString())
+          : null;
+      final String waiterName = order["waiter"]?.toString() ?? "Admin";
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderScreen(
+            waiterName: waiterName,
+            tableId: tableId,
+            tableName: tableName,
+            customerCount: customerCount,
+            selectedTiltId: selectedTiltId,
+            tabUniqueId: tabUniqueId,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Edit navigation error: $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,6 +165,12 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
         title: const Text("Running Orders"),
         backgroundColor: const Color(0xFF0D1D20),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF75E5E2)),
+            onPressed: _fetchOrders,
+          ),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -135,7 +236,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                           child: Text("OrderTime", style: _headerStyle),
                         ),
                         Expanded(
-                          flex: 3,
+                          flex: 4, // Increased flex to accommodate new button
                           child: Text(
                             "Action",
                             style: _headerStyle,
@@ -209,13 +310,44 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                               ),
 
                               Expanded(
-                                flex: 3,
+                                flex:
+                                    4, // Increased flex to accommodate new button
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
+                                    // New Edit Button
+                                    ElevatedButton.icon(
+                                      onPressed: () =>
+                                          _navigateToEditScreen(order),
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text(
+                                        "EDIT",
+                                        style: _buttonTextStyle,
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFFD66022,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 8),
+
                                     ElevatedButton(
                                       onPressed: () {
-                                        // 💡 FIX APPLIED HERE: order['order_no'] ko .toString() mein convert kiya gaya hai.
                                         final dynamic orderNo =
                                             order['order_no'];
                                         final String orderNoString = orderNo
@@ -224,7 +356,6 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            // ✅ Corrected Line: Order number ko String ki tarah pass kiya ja raha hai.
                                             builder: (_) => CashBillScreen(
                                               orderNo: orderNoString,
                                             ),
@@ -234,7 +365,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.green,
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
+                                          horizontal: 10,
                                           vertical: 14,
                                         ),
                                         shape: RoundedRectangleBorder(
@@ -249,7 +380,8 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                       ),
                                     ),
 
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
+
                                     ElevatedButton(
                                       onPressed: () {
                                         // TODO: implement CREDIT action
@@ -257,7 +389,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
+                                          horizontal: 10,
                                           vertical: 14,
                                         ),
                                         shape: RoundedRectangleBorder(

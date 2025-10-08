@@ -118,132 +118,141 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _login() async {
-    if (_formKey.currentState!.validate() &&
-        _selectedUser != null &&
-        _connectionDetails != null) {
-      setState(() {
-        _isConnecting = true;
-      });
+Future<void> _login() async {
+  if (_formKey.currentState!.validate() &&
+      _selectedUser != null &&
+      _connectionDetails != null) {
+    setState(() {
+      _isConnecting = true;
+    });
 
-      try {
-        await SqlConn.connect(
-          ip: _connectionDetails!['ip'] as String,
-          port: _connectionDetails!['port'] as String,
-          databaseName: _connectionDetails!['dbName'] as String,
-          username: _connectionDetails!['username'] as String,
-          password: _connectionDetails!['password'] as String,
-        );
+    try {
+      await SqlConn.connect(
+        ip: _connectionDetails!['ip'] as String,
+        port: _connectionDetails!['port'] as String,
+        databaseName: _connectionDetails!['dbName'] as String,
+        username: _connectionDetails!['username'] as String,
+        password: _connectionDetails!['password'] as String,
+      );
 
-        final loginQuery =
-            "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
-        final loginResult = await SqlConn.readData(loginQuery);
+      final loginQuery =
+          "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
+      final loginResult = await SqlConn.readData(loginQuery);
 
-        if (jsonDecode(loginResult).isNotEmpty) {
-          // ❌ Admin ko login allow nahi karna
-          if (_selectedUser?.toLowerCase() == "admin") {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Admin login is not allowed."),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-            return; // 🚫 Login process yahin stop
-          }
-
-          if (mounted) {
-            await _syncDataAndLogin();
-          }
-        } else {
+      // ✅ Agar login success hua
+      if (jsonDecode(loginResult).isNotEmpty) {
+        // ❌ Admin ko allow mat karo
+        if (_selectedUser?.toLowerCase() == "admin") {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Login failed: Invalid username or password'),
+                content: Text("Admin login is not allowed."),
                 backgroundColor: Colors.red,
               ),
             );
           }
+          return;
         }
-      } catch (e) {
+
+        // ✅ Pehle purana user delete + naya save karo
+        await DatabaseHelper.instance.saveLoggedInUser(_selectedUser!);
+
+        // ✅ Sync aur dashboard pe jao
+        if (mounted) {
+          await _syncDataAndLogin();
+        }
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Login failed: $e'),
+            const SnackBar(
+              content: Text('Login failed: Invalid username or password'),
               backgroundColor: Colors.red,
             ),
           );
         }
-        print('Error during login: $e');
-      } finally {
-        SqlConn.disconnect();
-        setState(() {
-          _isConnecting = false;
-        });
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error during login: $e');
+    } finally {
+      SqlConn.disconnect();
+      setState(() {
+        _isConnecting = false;
+      });
     }
   }
+}
+
 
   String _cleanString(String text) {
     return text.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '').replaceAll(r'\', '');
   }
 
-  Future<void> _syncDataAndLogin() async {
-    try {
-      final categoriesEmpty = await DatabaseHelper.instance
-          .isCategoriesTableEmpty();
-      final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
+Future<void> _syncDataAndLogin() async {
+  try {
+    final categoriesEmpty = await DatabaseHelper.instance.isCategoriesTableEmpty();
+    final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
 
-      if (categoriesEmpty || itemsEmpty) {
-        final categoryResult = await SqlConn.readData(
-          "SELECT id, category_name FROM CategoryPOS",
-        );
-        final cleanedCategoryResult = _cleanString(categoryResult);
-        final categories = (jsonDecode(cleanedCategoryResult) as List<dynamic>)
-            .cast<Map<String, dynamic>>();
-        await DatabaseHelper.instance.saveCategories(categories);
-        print('Categories saved locally successfully.');
+    if (categoriesEmpty || itemsEmpty) {
+      final categoryResult = await SqlConn.readData(
+        "SELECT id, category_name FROM CategoryPOS",
+      );
+      final cleanedCategoryResult = _cleanString(categoryResult);
+      final categories = (jsonDecode(cleanedCategoryResult) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      await DatabaseHelper.instance.saveCategories(categories);
+      print('Categories saved locally successfully.');
 
-        final itemQuery =
-            "SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply "
-            "FROM itempos i "
-            "LEFT JOIN categorypos c ON i.category_name = c.category_name "
-            "WHERE i.status = '1';";
-        final itemResult = await SqlConn.readData(itemQuery);
-        final cleanedItemResult = _cleanString(itemResult);
-        final items = (jsonDecode(cleanedItemResult) as List<dynamic>)
-            .cast<Map<String, dynamic>>();
-        await DatabaseHelper.instance.saveItems(items);
-        print('Items saved locally successfully.');
-      } else {
-        print('Data already exists locally, skipping synchronization.');
-      }
+      final itemQuery = """
+        SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply
+        FROM itempos i
+        LEFT JOIN categorypos c ON i.category_name = c.category_name
+        WHERE i.status = '1';
+      """;
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userName: _selectedUser!,
-              tiltId: widget.tiltId, // ✅ yahan pass karo
-              tiltName: widget.tiltName, // ✅ yahan pass karo
-            ),
+      final itemResult = await SqlConn.readData(itemQuery);
+      final cleanedItemResult = _cleanString(itemResult);
+      final items = (jsonDecode(cleanedItemResult) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      await DatabaseHelper.instance.saveItems(items);
+      print('Items saved locally successfully.');
+    } else {
+      print('Data already exists locally, skipping synchronization.');
+    }
+
+    // ✅ Ab navigation karo
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardScreen(
+            userName: _selectedUser!,
+            tiltId: widget.tiltId,
+            tiltName: widget.tiltName,
           ),
-        );
-      }
-    } catch (e) {
-      print('Error during data synchronization: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Data synchronization failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+        ),
+      );
+    }
+  } catch (e) {
+    print('Error during data synchronization: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Data synchronization failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

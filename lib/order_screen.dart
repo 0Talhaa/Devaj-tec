@@ -9,7 +9,10 @@ import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/bill_screen.dart';
 // ignore: unused_import
 import 'package:start_app/main.dart';
-// import 'package:start_app/device_helper.dart';
+import 'package:intl/intl.dart';
+
+final now = DateTime.now();
+final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
 class OrderScreen extends StatefulWidget {
   final int tableId;
@@ -17,6 +20,7 @@ class OrderScreen extends StatefulWidget {
   final String waiterName;
   final int customerCount;
   final int? selectedTiltId;
+  final String? tabUniqueId; // agar edit karna hai to ye pass hoga
 
   OrderScreen({
     required this.waiterName,
@@ -24,15 +28,16 @@ class OrderScreen extends StatefulWidget {
     required this.tableName,
     required this.customerCount,
     required this.selectedTiltId,
-  }) {
-    debugPrint("📌 OrderScreen received TiltId=$selectedTiltId");
-  }
+    required this.tabUniqueId,
+  });
+
   @override
   _OrderScreenState createState() => _OrderScreenState();
 }
 
 class _OrderScreenState extends State<OrderScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+
   late MssqlConnection _mssql;
   // ignore: unused_field, prefer_final_fields
   bool _isMssqlReady = false; // ✅ flag
@@ -45,26 +50,47 @@ class _OrderScreenState extends State<OrderScreen>
   int _isPrintKot = 1;
   Map<String, dynamic>? _connectionDetails;
   late TabController _tabController;
-  final List<Map<String, dynamic>> _currentOrder = [];
+ List<Map<String,dynamic>> _currentOrder = [];
   double _totalBill = 0.0;
   double _totalTax = 0.0;
   double _totalDiscount = 0.0;
 int? _finalTiltId;
 String? _finalTiltName;
 
+  @override
+  void initState() {
+    super.initState();
+    _initConnectionAndLoadData();
+    _loadConnectionDetails();
+    _loadTiltFromLocal();
+    _loadLoggedUser();
+    _checkUser();
+    if (widget.tabUniqueId != null) {
+      // ✅ Edit mode
+      _fetchExistingOrder(widget.tabUniqueId!);
+    } else {
+      // ✅ New order
+      _generateNewTabUniqueId();
+    }
+    _fetchMenuData();
+  }
+
 @override
-void initState() {
-  super.initState();
-  _initConnectionAndLoadData();
-  _loadConnectionDetails();
-  _loadTiltFromLocal();
+void dispose() {
+  // agar initialize hi hua hai to dispose karo
+  if (_tabController != null) {
+    _tabController.dispose();
+  }
+  super.dispose();
 }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+Future<void> _loadLoggedUser() async {
+  final user = await DatabaseHelper.instance.getLoggedInUser();
+  setState(() {
+    _currentUser = user ?? "Admin"; // fallback agar user null ho
+  });
+  print("✅ Current user in order_screen.dart: $_currentUser");
+}
   Future<void> _loadConnectionDetails() async {
     Map<String, dynamic>? connDetails =
         await DatabaseHelper.instance.getConnectionDetails();
@@ -80,6 +106,16 @@ void initState() {
     await _loadData(); // ✅ ab local data load karo
   }
 
+
+void _checkUser() async {
+  final user = await DatabaseHelper.instance.getLoggedInUser();
+  if (user != null) {
+    print("✅ Logged-in user found: $user");
+  } else {
+    print("❌ No user found locally.");
+  }
+}
+
 Future<void> _loadTiltFromLocal() async {
   final savedDetails = await DatabaseHelper.instance.getConnectionDetails();
   setState(() {
@@ -89,6 +125,143 @@ Future<void> _loadTiltFromLocal() async {
 
   debugPrint("📥 Loaded Tilt from local DB => Id=$_finalTiltId, Name=$_finalTiltName");
 }
+
+
+// This is Existing Order Funtion
+Future<void> _fetchExistingOrder(String tabUniqueId) async {
+  try {
+    final conn = await DatabaseHelper.instance.getConnectionDetails();
+    if (conn == null) {
+      print("❌ Connection details missing");
+      return;
+    }
+
+    if (!await SqlConn.isConnected) {
+      await SqlConn.connect(
+        ip: conn['ip'],
+        port: conn['port'],
+        databaseName: conn['dbName'],
+        username: conn['username'],
+        password: conn['password'],
+      );
+    }
+
+final query = """
+        select distinct d.itemid as itemid, d.item_name, d.qty, d.Comments,
+        (i.sale_price) as item_unit_price, -- Item ki unit sale price
+        d.id as orderDetailId, d.tax as tax,
+        (select KotStatus from OrderKot where OrderDetailId=d.id) as kotstatus,
+        1 as is_upload
+        from order_detail d
+        inner join dine_in_order m on d.order_key = m.order_key
+        inner join itempos i on i.id = d.itemid
+        where m.tab_unique_id = '${tabUniqueId}'
+      """;
+
+    final result = await SqlConn.readData(query);
+    if (result.isEmpty) {
+      print("⚠️ No items found for tabUniqueId=$tabUniqueId");
+      return;
+    }
+
+    final decoded = jsonDecode(result) as List<dynamic>;
+
+    setState(() {
+      _currentOrder.clear();
+_currentOrder.addAll(decoded.map((row) {
+  final qty = int.tryParse(row["qty"].toString()) ?? 0;
+  final unitPrice = double.tryParse(row["item_unit_price"].toString()) ?? 0.0;
+  final discount = double.tryParse(row["discount"]?.toString() ?? "0") ?? 0.0;
+  final tax = double.tryParse(row["tax"]?.toString() ?? "0") ?? 0.0;
+
+  final subtotal = qty * unitPrice;
+  final taxAmount = subtotal * tax / 100;
+  final discountAmount = subtotal * discount / 100;
+  final finalTotal = subtotal + taxAmount - discountAmount;
+
+  debugPrint("🧾 Item: ${row["item_name"]}, Qty: $qty, Price: $unitPrice, Subtotal: $subtotal, Tax%: $tax, Discount%: $discount, Final: $finalTotal");
+
+  return {
+    "itemId": row["itemid"], // ✅ correct key
+    "item_name": row["item_name"], // ✅ correct key
+    "quantity": row["qty"],
+    "sale_price": unitPrice,
+    "discount_percent": discount,
+    "tax_percent": row["tax"] ?? 0.0,
+    "Comments": row["Comments"] ?? "",
+  };
+}));
+print("🧩 Raw SQL Result: $result");
+print("🧩 Decoded: $decoded");
+
+
+
+      _calculateTotalBill();
+    });
+  } catch (e) {
+    print("❌ Error fetching existing order: $e");
+  }
+}
+
+
+
+  // ✅ TabUniqueId generate karne wala method
+void _generateNewTabUniqueId() {
+  final now = DateTime.now();
+  final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+  // agar tiltName null hai to default "T1"
+  final tiltName = _finalTiltName ?? "T1";
+
+  final newId = "${tiltName}$formattedDate";
+  debugPrint("🆕 Generated tab_unique_id => $newId");
+
+  // agar new order hai to currentOrder ko empty rakho
+  setState(() {
+    _currentOrder = [];
+  });
+}
+
+// ✅ Menu data fetch karne wala method
+Future<void> _fetchMenuData() async {
+  try {
+    final categories = await DatabaseHelper.instance.getCategories();
+    final items = await DatabaseHelper.instance.getItems();
+
+    final Map<String, List<Map<String, dynamic>>> groupedData = {};
+
+    for (var category in categories) {
+      final categoryName = category['category_name'] as String;
+      groupedData[categoryName] = [];
+      for (var item in items) {
+        if (item['category_name'] == categoryName) {
+          groupedData[categoryName]!.add(item);
+        }
+      }
+    }
+
+    setState(() {
+      _categories = categories;
+      _categoryItems = groupedData;
+
+      if (_categories.isNotEmpty) {
+        _selectedCategory = _categories[0]['category_name'];
+        _tabController =
+            TabController(length: _categories.length, vsync: this);
+      }
+    });
+
+    debugPrint("📦 Menu Loaded: ${_categories.length} categories");
+  } catch (e) {
+    debugPrint("❌ Error fetching menu data: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading menu: $e")),
+      );
+    }
+  }
+}
+
 
   Future<void> _loadData() async {
     final details = await DatabaseHelper.instance.getConnectionDetails();
@@ -364,50 +537,57 @@ void _addItemToOrder(Map<String, dynamic> item) {
   }
 
   // Har item ka tax aur discount calculate karta hai
-  void _updateItemCalculation(Map<String, dynamic> item) {
-    final int quantity = item['quantity'] as int;
+void _updateItemCalculation(Map<String, dynamic> item, {bool increase = true}) {
+  setState(() {
+    int qty = (item['qty'] is num) ? (item['qty'] as num).toInt() : 0;
+    qty = increase ? qty + 1 : (qty > 0 ? qty - 1 : 0);
+    item['qty'] = qty; // ✅ always int
+    item['subtotal'] = (item['price'] ?? 0) * qty;
+  });
+}
 
-    // Quantity ke hisaab se tax calculate karen
-    final double taxPercentage = 5.0 + (quantity * 0.1);
-    item['tax_percent'] = taxPercentage;
+void _calculateTotalBill() {
+  double total = 0.0;
+  double totalTaxAmount = 0.0;
+  double totalDiscountAmount = 0.0;
 
-    // Quantity ke hisaab se discount calculate karen
-    double discountPercentage = 0.0;
-    if (quantity >= 10) {
-      discountPercentage = 15.0; // 15% discount
-    } else if (quantity >= 5) {
-      discountPercentage = 10.0; // 10% discount
-    }
-    item['discount_percent'] = discountPercentage;
+  for (var item in _currentOrder) {
+    final double itemPrice = (item['sale_price'] ?? 0).toDouble();
+    final int quantity = (item['quantity'] ?? 0).toInt();
+    final double taxPercent = (item['tax_percent'] ?? 0).toDouble();
+    final double discountPercent = (item['discount_percent'] ?? 0).toDouble();
+
+    // ✅ Subtotal
+    final double subtotal = itemPrice * quantity;
+
+    // ✅ Tax & Discount
+    final double taxAmount = subtotal * (taxPercent / 100);
+    final double discountAmount = subtotal * (discountPercent / 100);
+
+    // ✅ Final total for this item
+    final double itemTotal = subtotal + taxAmount - discountAmount;
+
+    total += itemTotal;
+    totalTaxAmount += taxAmount;
+    totalDiscountAmount += discountAmount;
+
+    // Debug har item ka calculation
+    print("🧾 Item: ${item['item_name']}, "
+        "Qty: $quantity, Price: $itemPrice, "
+        "Subtotal: $subtotal, Tax%: $taxPercent, "
+        "Discount%: $discountPercent, "
+        "Final: $itemTotal");
   }
 
-  void _calculateTotalBill() {
-    double total = 0.0;
-    double totalTaxAmount = 0.0;
-    double totalDiscountAmount = 0.0;
+  setState(() {
+    _totalBill = total;
+    _totalTax = totalTaxAmount;
+    _totalDiscount = totalDiscountAmount;
+  });
 
-    for (var item in _currentOrder) {
-      final double itemPrice = (item['sale_price'] ?? 0).toDouble();
-      final int quantity = (item['quantity'] ?? 0).toInt();
-      final double tax = (item['tax_percent'] ?? 0).toDouble();
-      final double discount = (item['discount_percent'] ?? 0).toDouble();
+  print("💰 Final Bill => Total: $_totalBill | Tax: $_totalTax | Discount: $_totalDiscount");
+}
 
-      final double subtotal = itemPrice * quantity;
-      final double taxAmount = subtotal * (tax / 100);
-      final double discountAmount = subtotal * (discount / 100);
-
-      final double itemTotal = subtotal + taxAmount - discountAmount;
-
-      total += subtotal + taxAmount - discountAmount;
-      totalTaxAmount += taxAmount;
-      totalDiscountAmount += discountAmount;
-    }
-    setState(() {
-      _totalBill = total;
-      _totalTax = totalTaxAmount;
-      _totalDiscount = totalDiscountAmount;
-    });
-  }
 
   Future<void> _initMssqlAndLoadData() async {
     await _setupSqlConn(); // wait for connection
@@ -479,14 +659,14 @@ String deviceNo = (connDetails?['deviceName']?.isNotEmpty ?? false)
     : 'POS01';  // 👈 agar khali hai to default POS01
 int isPrintKot = connDetails?['isCashier'] ?? 1;  // 👈 agar isCashier use karna hai
 int tiltId = int.tryParse(connDetails?['tiltId'] ?? "0") ?? 0;
-String tiltName = connDetails?['tiltName'] ?? "Unknown";
+final tiltName = connDetails?['tiltName'] ?? "T1";
 
 
-  final tabUniqueId = DateTime.now().millisecondsSinceEpoch.toString();
-
+ 
+final tabUniqueId = "${tiltName}${formattedDate}";
   // ✅ Build lists
-  final qtyList = _currentOrder.map((e) => e['quantity'].toString()).join(",");
-  final prodItemCodes = _currentOrder.map((e) => e['id'].toString()).join(",");
+  final qtyList = _currentOrder.map((e) => e['quantity'].toInt()).join(",");
+  final productCodes = _currentOrder.map((item) => item['id'] != null ? item['id'].toString() : '0').join(',');
   final orderDtlIds = _currentOrder.map((e) => "0").join(",");
   final commentList = _currentOrder
       .map((e) => (e['Comments'] ?? "No Comment").toString())
@@ -506,7 +686,7 @@ String tiltName = connDetails?['tiltName'] ?? "Unknown";
           @device_no = '$deviceNo',
           @totalAmount = $_totalBill,
           @qty2 = '$qtyList',
-          @proditemcode = '$prodItemCodes',
+          @proditemcode = '$productCodes',
           @OrderDtlID = '$orderDtlIds',
           @User = '$_currentUser',
           @IsPrintKOT = $isPrintKot,
@@ -523,7 +703,7 @@ String tiltName = connDetails?['tiltName'] ?? "Unknown";
 
   debugPrint("===== FINAL QUERY =====\n$query");
   print("📝 Qty List => $qtyList");
-  print("📝 Product Codes => $prodItemCodes");
+  print("📝 Product Codes => $productCodes");
   print("📝 Comments => $commentList");
 
 
@@ -1294,11 +1474,6 @@ ElevatedButton(
     final double taxAmount = subtotal * taxPercent / 100;
     final double discountAmount = subtotal * discountPercent / 100;
     final double itemTotal = subtotal + taxAmount - discountAmount;
-    //     return ListTile(
-    //   title: Text(orderItem['item_name']),
-    //   subtitle: Text(orderItem['comment'] ?? 'No comment'),
-    //   trailing: Text("Total: ${itemTotal.toStringAsFixed(2)}"),
-    // );
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7.0),
                   child: Column(
@@ -1311,7 +1486,7 @@ ElevatedButton(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  orderItem['item_name'],
+                                  orderItem['item_name'] ?? 'Unknown',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w500,
@@ -1335,7 +1510,7 @@ ElevatedButton(
                           Expanded(
                             flex: 2,
                             child: Text(
-                              orderItem['sale_price'].toStringAsFixed(2),
+                              (orderItem['sale_price'] ?? 0).toStringAsFixed(2),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
@@ -1374,7 +1549,7 @@ ElevatedButton(
                                 SizedBox(
                                   width: 24, // 👈 pehle 28 tha
                                   child: Text(
-                                    orderItem['quantity'].toString(),
+                                    (orderItem['quantity'] ?? 0).toString(),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -1413,7 +1588,7 @@ ElevatedButton(
                           Expanded(
                             flex: 2,
                             child: Text(
-                              '${(orderItem['discount_percent'] as double).toStringAsFixed(0)}%',
+                              '${(orderItem['discount_percent'] ?? 0).toStringAsFixed(0)}%',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,

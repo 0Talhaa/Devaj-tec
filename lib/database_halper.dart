@@ -1,7 +1,5 @@
 import 'package:path/path.dart';
-// ignore: depend_on_referenced_packages
 import 'package:sqflite/sqflite.dart';
-// ignore: unused_import
 import 'dart:convert';
 
 class DatabaseHelper {
@@ -22,13 +20,13 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7, // 🔺 latest version
+      version: 8, // 🔺 Increased version (7 → 8)
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
   }
 
-  // Sirf pehli dafa tables create honge
+  // ✅ Create all tables (runs once when DB is created)
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE tbl_connection_details (
@@ -39,7 +37,7 @@ class DatabaseHelper {
         username TEXT NOT NULL,
         password TEXT NOT NULL,
         port TEXT NOT NULL,
-        tiltId TEXT,              -- 🔹 Correct spelling
+        tiltId TEXT,
         tiltName TEXT,
         deviceName TEXT,
         isCashier INTEGER DEFAULT 0
@@ -88,37 +86,35 @@ class DatabaseHelper {
       )
     ''');
 
+    // ✅ Table for saving logged-in user
     await db.execute('''
-    CREATE TABLE logged_user (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL
-    )
-  ''');
+      CREATE TABLE logged_in_user (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL
+      )
+    ''');
   }
 
-  
-
-  // Migration handler
+  // ✅ Handles DB schema upgrades
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('''
-      CREATE TABLE tbl_categories (
-        id INTEGER PRIMARY KEY,
-        category_name TEXT NOT NULL,
-        is_tax_apply INTEGER NOT NULL
-      )
-    ''');
+        CREATE TABLE tbl_categories (
+          id INTEGER PRIMARY KEY,
+          category_name TEXT NOT NULL,
+          is_tax_apply INTEGER NOT NULL
+        )
+      ''');
       await db.execute('''
-      CREATE TABLE tbl_items (
-        id INTEGER PRIMARY KEY,
-        item_name TEXT NOT NULL,
-        sale_price REAL NOT NULL,
-        codes TEXT,
-        category_name TEXT NOT NULL,
-        is_tax_apply INTEGER NOT NULL
-      )
-    ''');
-    
+        CREATE TABLE tbl_items (
+          id INTEGER PRIMARY KEY,
+          item_name TEXT NOT NULL,
+          sale_price REAL NOT NULL,
+          codes TEXT,
+          category_name TEXT NOT NULL,
+          is_tax_apply INTEGER NOT NULL
+        )
+      ''');
     }
 
     if (oldVersion < 3) {
@@ -139,18 +135,18 @@ class DatabaseHelper {
       );
     }
 
-    // ✅ logged_user table agar purane DB me nahi hai to add karo
-    if (oldVersion < 7) {
+    // ✅ Fix: ensure table name consistency
+    if (oldVersion < 8) {
       await db.execute('''
-      CREATE TABLE IF NOT EXISTS logged_user (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL
-      )
-    ''');
+        CREATE TABLE IF NOT EXISTS logged_in_user (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL
+        )
+      ''');
     }
   }
 
-  // Connection details save
+  // ✅ Save connection details
   Future<void> saveConnectionDetails({
     required String ip,
     required String serverName,
@@ -158,63 +154,83 @@ class DatabaseHelper {
     required String username,
     required String password,
     required String port,
-    required String tiltId, // ✅ ye rakho
-    required String tiltName, // ✅ ye bhi rakho
+    required String tiltId,
+    required String tiltName,
     required String deviceName,
     required int isCashier,
   }) async {
     final db = await instance.database;
-    await db.insert('tbl_connection_details', {
-      'ip': ip,
-      'serverName': serverName,
-      'dbName': dbName,
-      'username': username,
-      'password': password,
-      'port': port,
-      'tiltId': tiltId,
-      'tiltName': tiltName,
-      'deviceName': deviceName,
-      'isCashier': isCashier,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'tbl_connection_details',
+      {
+        'ip': ip,
+        'serverName': serverName,
+        'dbName': dbName,
+        'username': username,
+        'password': password,
+        'port': port,
+        'tiltId': tiltId,
+        'tiltName': tiltName,
+        'deviceName': deviceName,
+        'isCashier': isCashier,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
+  // ✅ Get connection details
   Future<Map<String, dynamic>?> getConnectionDetails() async {
     final db = await instance.database;
     final result = await db.query('tbl_connection_details', limit: 1);
     return result.isNotEmpty ? result.first : null;
   }
 
+  // ✅ Save categories
   Future<void> saveCategories(List<Map<String, dynamic>> categories) async {
     final db = await instance.database;
     for (var category in categories) {
       final isTaxApply = category['is_tax_apply'] ?? 0;
-      await db.insert('tbl_categories', {
-        'id': category['id'],
-        'category_name': category['category_name'],
-        'is_tax_apply': isTaxApply,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        'tbl_categories',
+        {
+          'id': category['id'],
+          'category_name': category['category_name'],
+          'is_tax_apply': isTaxApply,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 
+  // ✅ Get categories
   Future<List<Map<String, dynamic>>> getCategories() async {
     final db = await instance.database;
-    return await db.query('tbl_categories', columns: ['id', 'category_name']);
+    return await db.query(
+      'tbl_categories',
+      columns: ['id', 'category_name', 'is_tax_apply'],
+    );
   }
 
+  // ✅ Save items
   Future<void> saveItems(List<Map<String, dynamic>> items) async {
     final db = await instance.database;
     for (var item in items) {
-      await db.insert('tbl_items', {
-        'id': item['id'],
-        'item_name': item['item_name'],
-        'sale_price': item['sale_price'],
-        'codes': item['codes'],
-        'category_name': item['category_name'],
-        'is_tax_apply': item['is_tax_apply'],
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        'tbl_items',
+        {
+          'id': item['id'],
+          'item_name': item['item_name'],
+          'sale_price': item['sale_price'],
+          'codes': item['codes'],
+          'category_name': item['category_name'],
+          'is_tax_apply': item['is_tax_apply'],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 
+  // ✅ Get items
   Future<List<Map<String, dynamic>>> getItems() async {
     final db = await instance.database;
     return await db.query(
@@ -230,6 +246,7 @@ class DatabaseHelper {
     );
   }
 
+  // ✅ Check if tables are empty
   Future<bool> isCategoriesTableEmpty() async {
     final db = await instance.database;
     final count = Sqflite.firstIntValue(
@@ -246,39 +263,55 @@ class DatabaseHelper {
     return count == 0;
   }
 
+  // ✅ Clear user and connection data
   Future<void> clearTblUser() async {
     final db = await instance.database;
     await db.delete('tbl_user');
   }
 
-  Future getData(String query) async {}
-
   Future<void> clearConnectionDetails() async {
     final db = await database;
-    await db.delete('tbl_connection_details'); // ✅ Fixed
+    await db.delete('tbl_connection_details');
   }
 
+  // ✅ Save logged-in user
   Future<void> saveLoggedInUser(String username) async {
     final db = await database;
-    await db.delete('logged_user');
-    await db.insert(
-      'logged_user',
-      {'username': username},
-      conflictAlgorithm: ConflictAlgorithm.replace, // ✅ Safe insert
-    );
+    await db.delete('logged_in_user');
+    await db.insert('logged_in_user', {'username': username});
+    print("🟢 User saved locally: $username");
   }
 
+  // ✅ Get logged-in user
   Future<String?> getLoggedInUser() async {
     final db = await database;
-    final result = await db.query('logged_user', limit: 1);
+    final result = await db.query('logged_in_user');
     if (result.isNotEmpty) {
+      print("📦 Current logged-in user: ${result.first['username']}");
       return result.first['username'] as String;
     }
+    print("⚠️ No logged-in user found.");
     return null;
   }
 
+  // ✅ Clear logged-in user (for logout)
   Future<void> clearLoggedInUser() async {
     final db = await database;
-    await db.delete('logged_user');
+    await db.delete('logged_in_user');
+    print("🧹 Logged-in user cleared!");
   }
+
+  // ✅ Run custom SQL query and return result
+Future<List<Map<String, dynamic>>> getData(String query) async {
+  final db = await database;
+  try {
+    final result = await db.rawQuery(query);
+    print("📊 Query executed successfully: $query");
+    return result;
+  } catch (e) {
+    print("❌ Error executing query: $e");
+    return [];
+  }
+}
+
 }
