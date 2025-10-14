@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:start_app/main.dart'; // For color constants
 import 'package:start_app/new_order_types_page.dart';
 import 'package:start_app/running_orders_page.dart';
-import 'package:start_app/web_view_screen.dart'; // Naya import
-
+import 'package:start_app/web_view_screen.dart';
+import 'package:start_app/login_screen.dart'; // Added for logout functionality
+import 'package:start_app/database_halper.dart';
 class DashboardScreen extends StatelessWidget {
   final String userName;
   final int tiltId;
@@ -23,7 +25,29 @@ class DashboardScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: kPrimaryColor, // Consistent with main.dart
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              // Clear logged-in user and navigate to LoginScreen
+              await DatabaseHelper.instance.clearLoggedInUser();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LoginScreen(
+                      tiltId: tiltId,
+                      tiltName: tiltName,
+                    ),
+                  ),
+                  (route) => false,
+                );
+              }
+            },
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: Container(
@@ -31,16 +55,14 @@ class DashboardScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0D1D20), Color(0xFF1D3538)],
+            colors: [kTertiaryColor, Color(0xFF1D3538)],
           ),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 600) {
-              return _buildLargeScreenLayout(context);
-            } else {
-              return _buildSmallScreenLayout(context);
-            }
+            return constraints.maxWidth > 600
+                ? _buildLargeScreenLayout(context)
+                : _buildSmallScreenLayout(context);
           },
         ),
       ),
@@ -61,7 +83,7 @@ class DashboardScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(48.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF162A2D),
+                    color: kInputBgColor, // Consistent with main.dart
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
@@ -83,23 +105,33 @@ class DashboardScreen extends StatelessWidget {
                           'assets/devaj_logo.png',
                           width: 150,
                           height: 150,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.error, color: Colors.red, size: 150),
                         ),
                         const SizedBox(height: 30),
-                        // Username ko uppercase mein show karne ke liye .toUpperCase() method ka use karein
                         Text(
-                          "Welcome, ${userName.toUpperCase()}!",
+                          'Welcome, ${userName.toUpperCase()}!',
                           style: const TextStyle(
-                            fontSize: 34,
+                            fontSize: 28, // Slightly reduced for accessibility
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF75E5E2),
+                            color: kPrimaryColor,
                             fontFamily: 'Raleway',
                             shadows: [
                               Shadow(
-                                blurRadius: 10.0,
-                                color: Color(0xFF75E5E2),
+                                blurRadius: 8.0,
+                                color: kPrimaryColor,
                                 offset: Offset(0, 0),
                               ),
                             ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          'Tilt: $tiltName (ID: $tiltId)', // Added to display tilt info
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: kSecondaryColor,
+                            fontFamily: 'Raleway',
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -114,7 +146,7 @@ class DashboardScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(48.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF162A2D),
+                    color: kInputBgColor,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
@@ -147,7 +179,7 @@ class DashboardScreen extends StatelessWidget {
                           context,
                           'Open Web View',
                           Icons.public,
-                          const WebViewScreen(url: 'http://163.61.91.48:5000/'),
+                          const WebViewScreen(url: 'https://163.61.91.48:5000/'), // Changed to HTTPS
                         ),
                       ],
                     ),
@@ -178,24 +210,34 @@ class DashboardScreen extends StatelessWidget {
                     'assets/devaj_logo.png',
                     width: 150,
                     height: 150,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.error, color: Colors.red, size: 150),
                   ),
                 ),
                 const SizedBox(height: 30),
-                // Username ko uppercase mein show karne ke liye .toUpperCase() method ka use karein
                 Text(
-                  "Welcome, ${userName.toUpperCase()}!",
+                  'Welcome, ${userName.toUpperCase()}!',
                   style: const TextStyle(
-                    fontSize: 28,
+                    fontSize: 24, // Slightly reduced for accessibility
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF75E5E2),
+                    color: kPrimaryColor,
                     fontFamily: 'Raleway',
                     shadows: [
                       Shadow(
                         blurRadius: 8.0,
-                        color: Color(0xFF75E5E2),
+                        color: kPrimaryColor,
                         offset: Offset(0, 0),
                       ),
                     ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  'Tilt: $tiltName (ID: $tiltId)', // Added to display tilt info
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: kSecondaryColor,
+                    fontFamily: 'Raleway',
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -218,9 +260,7 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   'Open Web View',
                   Icons.public,
-                  const WebViewScreen(
-                    url: 'http://163.61.91.48:5000/',
-                  ), // Naya button
+                  const WebViewScreen(url: 'https://163.61.91.48:5000/'), // Changed to HTTPS
                 ),
                 const SizedBox(height: 24),
               ],
@@ -241,7 +281,7 @@ class DashboardScreen extends StatelessWidget {
       onPressed: () {
         Navigator.push(context, MaterialPageRoute(builder: (context) => page));
       },
-      icon: Icon(icon, color: const Color(0xFF0D1D20), size: 28),
+      icon: Icon(icon, color: kTertiaryColor, size: 28),
       label: Text(
         title,
         style: const TextStyle(
@@ -251,8 +291,8 @@ class DashboardScreen extends StatelessWidget {
         ),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF75E5E2),
-        foregroundColor: const Color(0xFF0D1D20),
+        backgroundColor: kPrimaryColor,
+        foregroundColor: kTertiaryColor,
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 10,

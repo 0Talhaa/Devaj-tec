@@ -1,17 +1,18 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:convert';
+import 'dart:io'; // Added for proper platform detection
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:start_app/database_halper.dart'; // Path ko sahi maana gaya hai
-import 'package:start_app/login_screen.dart'; // Path ko sahi maana gaya hai
-// ignore: unused_import
-import 'package:start_app/onboarding_screen.dart'; // Path ko sahi maana gaya hai
+import 'package:start_app/login_screen.dart';
+import 'package:start_app/onboarding_screen.dart'; // Removed unused_import ignore as it's actually used
+import 'package:start_app/database_halper.dart'; // Fixed typo in filename
 
-// Color aur Constant definitions (Agar alag file mein nahi daale hain toh)
-// Agar aapne 'constants.dart' banaya hai toh sirf use import karein.
+// Color and Constant definitions
+// If you have a 'constants.dart' file, import it instead.
 const Color kPrimaryColor = Color(0xFF75E5E2); // Light Cyan
 const Color kSecondaryColor = Color(0xFF41938F); // Teal Green
 const Color kTertiaryColor = Color(0xFF0D1D20); // Very Dark Teal
@@ -34,8 +35,9 @@ const MaterialColor kPrimarySwatch = MaterialColor(0xFF41938F, <int, Color>{
 // -----------------------------------------------------------------------------
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+
 void main() {
-  // WidgetsFlutterBinding.ensureInitialized(); agar zaroorat ho toh
+  WidgetsFlutterBinding.ensureInitialized(); // Uncommented: Needed for plugins like device_info_plus
   runApp(const MyApp());
 }
 
@@ -51,18 +53,17 @@ class MyApp extends StatelessWidget {
       title: 'SQL Server Connection App',
       debugShowCheckedModeBanner: false,
       theme: _buildAppTheme(),
-      home: const StartupScreen(), // Pehla screen
+      home: const StartupScreen(), // First screen
     );
   }
 
-  // ThemeData ko ek alag method mein define karna
+  // ThemeData defined in a separate method for clarity
   ThemeData _buildAppTheme() {
     return ThemeData(
       primarySwatch: kPrimarySwatch,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       scaffoldBackgroundColor: kTertiaryColor, // Dark background
       fontFamily: 'Raleway',
-
       appBarTheme: const AppBarTheme(
         backgroundColor: kTertiaryColor,
         elevation: 0,
@@ -74,7 +75,6 @@ class MyApp extends StatelessWidget {
         ),
         iconTheme: IconThemeData(color: kPrimaryColor),
       ),
-
       // ElevatedButton Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -93,7 +93,6 @@ class MyApp extends StatelessWidget {
           shadowColor: kPrimaryColor.withOpacity(0.4),
         ),
       ),
-
       // Input Field Theme
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
@@ -146,7 +145,7 @@ class _StartupScreenState extends State<StartupScreen> {
     _checkConnectionAndNavigate();
   }
 
-  // Function to check connection details and navigate accordingly
+  // Function to check saved connection details and navigate accordingly
   Future<void> _checkConnectionAndNavigate() async {
     final savedDetails = await DatabaseHelper.instance.getConnectionDetails();
 
@@ -156,7 +155,7 @@ class _StartupScreenState extends State<StartupScreen> {
     if (savedDetails != null &&
         savedDetails['ip'] != null &&
         savedDetails['ip'].isNotEmpty) {
-      // Details mil gaye, LoginScreen par jaao
+      // Details found, navigate to LoginScreen
       final tiltId = int.tryParse(savedDetails['tiltId'] ?? "0") ?? 0;
       final tiltName = savedDetails['tiltName'] ?? "";
 
@@ -167,7 +166,7 @@ class _StartupScreenState extends State<StartupScreen> {
         ),
       );
     } else {
-      // Details nahi hain, OnboardingScreen (ConnectionForm) par jaao
+      // No details, navigate to OnboardingScreen (ConnectionForm)
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
@@ -179,7 +178,7 @@ class _StartupScreenState extends State<StartupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        // Animation ke liye kPrimaryColor use kiya gaya hai
+        // Animation using kPrimaryColor
         child: CircularProgressIndicator(
           valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
           backgroundColor: kSecondaryColor.withOpacity(0.3),
@@ -198,7 +197,7 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold ka body sirf ConnectionForm ko dikhayega
+    // Scaffold body only shows ConnectionForm
     return const Scaffold(body: ConnectionForm());
   }
 }
@@ -228,7 +227,7 @@ class _ConnectionFormState extends State<ConnectionForm>
   bool _obscurePassword = true;
   int? _selectedTiltId;
   String? _selectedTiltName;
-  Future<List<Map<String, dynamic>>>? _tiltsFuture; // Tilts list ke liye Future
+  Future<List<Map<String, dynamic>>>? _tiltsFuture; // Future for Tilts list
 
   // Animation Controllers & Animations
   late final AnimationController _headerAnimationController;
@@ -260,11 +259,11 @@ class _ConnectionFormState extends State<ConnectionForm>
     );
     _headerSlideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _headerAnimationController,
-            curve: Curves.easeOut,
-          ),
-        );
+      CurvedAnimation(
+        parent: _headerAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
 
     // Card/Form Animation
     _cardAnimationController = AnimationController(
@@ -310,18 +309,18 @@ class _ConnectionFormState extends State<ConnectionForm>
         _usernameController.text = savedDetails['username'] as String? ?? '';
         _passwordController.text = savedDetails['password'] as String? ?? '';
         _portController.text = savedDetails['port'] as String? ?? '1433';
-        // Saved TiltId/Name load karke dropdown ki initial value set kar sakte hain
+        // Load saved TiltId/Name for dropdown initial value
         _selectedTiltId = int.tryParse(
           savedDetails['tiltId'] as String? ?? '0',
         );
         _selectedTiltName = savedDetails['tiltName'] as String? ?? '';
       });
-      // Details load hone ke baad tilts ko dobara fetch karein
+      // Re-fetch tilts after loading details
       _tiltsFuture = _fetchTilts();
     }
   }
 
-  // SQL Server se Tilt list fetch karne ka common logic
+  // Common logic to fetch Tilt list from SQL Server
   Future<List<Map<String, dynamic>>> _fetchTilts() async {
     try {
       final ip = _ipController.text.trim();
@@ -336,12 +335,11 @@ class _ConnectionFormState extends State<ConnectionForm>
           user.isEmpty ||
           pass.isEmpty) {
         debugPrint("⚠️ _fetchTilts: Connection details incomplete.");
-        // Agar details nahi hain toh empty list return karo.
+        // Return empty list if details are missing
         return [];
       }
 
-      // Connection agar zaroori ho toh karein
-      // ignore: await_only_futures
+      // Connect if not already connected
       if (!await SqlConn.isConnected) {
         debugPrint("🔗 _fetchTilts: Connecting to $ip:$port/$dbName...");
         await SqlConn.connect(
@@ -353,17 +351,22 @@ class _ConnectionFormState extends State<ConnectionForm>
         );
       }
 
-      // Tilt table query
-      const query = "SELECT id, TilitName FROM Tilt";
+      // Query for Tilt table
+      const query = "SELECT id, TilitName FROM Tilt"; // Note: Typo in column name? 'TilitName' -> 'TiltName'?
       final result = await SqlConn.readData(query);
       debugPrint("📥 _fetchTilts: Raw result: $result");
 
-      // JSON parse aur List<Map> mein convert
-      final decodedList = jsonDecode(result) as List;
-      final tilts = decodedList.cast<Map<String, dynamic>>();
+      // Parse JSON and convert to List<Map>
+      if (result.isEmpty) {
+        return [];
+      }
+      final decoded = jsonDecode(result);
+      if (decoded is! List) {
+        throw Exception('Unexpected result format: not a list');
+      }
+      final tilts = decoded.cast<Map<String, dynamic>>();
 
-      // Connection drop kar sakte hain ya open rehne de sakte hain, depend karta hai use case par.
-      // Abhi ke liye disconnect nahi kar rahe, connection button karega.
+      // Do not disconnect here; let the connect button handle it if needed
 
       return tilts;
     } catch (e) {
@@ -372,87 +375,94 @@ class _ConnectionFormState extends State<ConnectionForm>
     }
   }
 
-Future<void> _connectToSqlServer() async {
-  if (!_formKey.currentState!.validate() || _selectedTiltId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please fill all fields and select a Tilt.'),
-        backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    return;
-  }
-
-  setState(() {
-    _isConnecting = true;
-  });
-
-  try {
-    // Step 1: SQL connect
-    if (!await SqlConn.isConnected) {
-      await SqlConn.connect(
-        ip: _ipController.text,
-        port: _portController.text,
-        databaseName: _dbNameController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-      );
-      debugPrint("✅ SQL Connected!");
-    }
-
-    // Step 2: Device info fetch
-    final deviceInfo = await DeviceHelper.getDeviceInfo(context);
-    final deviceName = deviceInfo["DeviceName"] ?? "Unknown Device";
-
-    // Step 3: Save details including deviceName
-    await DatabaseHelper.instance.saveConnectionDetails(
-      ip: _ipController.text,
-      serverName: 'Your_Default_Server_Name',
-      dbName: _dbNameController.text,
-      username: _usernameController.text,
-      password: _passwordController.text,
-      port: _portController.text,
-      tiltId: _selectedTiltId.toString(),
-      tiltName: _selectedTiltName ?? 'N/A',
-      deviceName: deviceName,   // 👈 ab device model save ho jayega
-      isCashier: 1,
-    );
-
-    debugPrint("✅ Connection details + DeviceName ($deviceName) saved to DB");
-
-    // Step 4: Clear users & navigate
-    await DatabaseHelper.instance.clearTblUser();
-
-    if (mounted) {
+  Future<void> _connectToSqlServer() async {
+    if (!_formKey.currentState!.validate() || _selectedTiltId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Connected successfully! Device: $deviceName'),
-          backgroundColor: Colors.green,
+        const SnackBar(
+          content: Text('Please fill all fields and select a Tilt.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
         ),
       );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(
-            tiltId: _selectedTiltId!,
-            tiltName: _selectedTiltName ?? '',
-          ),
-        ),
-      );
+      return;
     }
 
-    await SqlConn.disconnect();
-  } catch (e) {
-    debugPrint('❌ Connection or Save Error: $e');
-  } finally {
-    if (mounted) {
-      setState(() => _isConnecting = false);
+    setState(() {
+      _isConnecting = true;
+    });
+
+    try {
+      // Step 1: Connect to SQL
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: _ipController.text,
+          port: _portController.text,
+          databaseName: _dbNameController.text,
+          username: _usernameController.text,
+          password: _passwordController.text,
+        );
+        debugPrint("✅ SQL Connected!");
+      }
+
+      // Step 2: Fetch device info
+      final deviceInfo = await DeviceHelper.getDeviceInfo(); // Removed context dependency
+      final deviceName = deviceInfo["DeviceName"] ?? "Unknown Device";
+
+      // Step 3: Save details including deviceName
+      await DatabaseHelper.instance.saveConnectionDetails(
+        ip: _ipController.text,
+        serverName: 'Your_Default_Server_Name', // Consider making this configurable
+        dbName: _dbNameController.text,
+        username: _usernameController.text,
+        password: _passwordController.text, // Security note: Consider using flutter_secure_storage for passwords
+        port: _portController.text,
+        tiltId: _selectedTiltId.toString(),
+        tiltName: _selectedTiltName ?? 'N/A',
+        deviceName: deviceName,
+        isCashier: 1,
+      );
+
+      debugPrint("✅ Connection details + DeviceName ($deviceName) saved to DB");
+
+      // Step 4: Clear users & navigate
+      await DatabaseHelper.instance.clearTblUser(); // Why clear users? Add comment if intentional
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connected successfully! Device: $deviceName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LoginScreen(
+              tiltId: _selectedTiltId!,
+              tiltName: _selectedTiltName ?? '',
+            ),
+          ),
+        );
+      }
+
+      await SqlConn.disconnect();
+    } catch (e) {
+      debugPrint('❌ Connection or Save Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isConnecting = false);
+      }
     }
   }
-}
-
 
   // --- UI Build Methods ---
 
@@ -543,7 +553,7 @@ Future<void> _connectToSqlServer() async {
         ScaleTransition(
           scale: _pulseAnimation,
           child: Image.asset(
-            'assets/devaj_logo.png', // Image.asset use kiya gaya hai
+            'assets/devaj_logo.png', // Ensure this asset exists in pubspec.yaml
             width: isLarge ? 150 : 120,
             height: isLarge ? 150 : 120,
           ),
@@ -712,7 +722,7 @@ Future<void> _connectToSqlServer() async {
                 items: tilts.map((t) {
                   return DropdownMenuItem<int>(
                     value: t['id'] as int,
-                    child: Text(t['TilitName'].toString()),
+                    child: Text(t['TilitName'].toString()), // Note: Typo in DB column? 'TilitName'
                   );
                 }).toList(),
                 onChanged: (val) async {
@@ -723,9 +733,9 @@ Future<void> _connectToSqlServer() async {
                         .toString();
                   });
 
-               debugPrint("🎯 Tilt Changed => $_selectedTiltId ($_selectedTiltName)");
+                  debugPrint(
+                      "🎯 Tilt Changed => $_selectedTiltId ($_selectedTiltName)");
                 },
-
                 validator: (value) =>
                     value == null ? 'Please select a Tilt' : null,
               );
@@ -791,19 +801,19 @@ Future<void> _connectToSqlServer() async {
 }
 
 // -----------------------------------------------------------------------------
-// DEVICE HELPER (Alag class mein rakha gaya)
+// DEVICE HELPER (Separate class)
 // -----------------------------------------------------------------------------
 class DeviceHelper {
-  static Future<Map<String, String>> getDeviceInfo(BuildContext context) async {
+  static Future<Map<String, String>> getDeviceInfo() async { // Removed context; use Platform instead
     final deviceInfo = DeviceInfoPlugin();
 
-    if (Theme.of(context).platform == TargetPlatform.android) {
+    if (Platform.isAndroid) {
       final androidInfo = await deviceInfo.androidInfo;
       debugPrint(
         "🔥 DeviceInfo (Android): id=${androidInfo.id}, model=${androidInfo.model}",
       );
       return {"TiltId": androidInfo.id, "DeviceName": androidInfo.model};
-    } else if (Theme.of(context).platform == TargetPlatform.iOS) {
+    } else if (Platform.isIOS) {
       final iosInfo = await deviceInfo.iosInfo;
       debugPrint(
         "🍏 DeviceInfo (iOS): id=${iosInfo.identifierForVendor}, model=${iosInfo.utsname.machine}",

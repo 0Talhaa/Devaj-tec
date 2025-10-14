@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:start_app/main.dart'; // For color constants
 import 'package:start_app/dining_page.dart';
 import 'package:start_app/take_away_page.dart';
 import 'package:start_app/delivery_page.dart';
@@ -14,7 +15,7 @@ class NewOrdersPage extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: kPrimaryColor, // Consistent with main.dart
       ),
       extendBodyBehindAppBar: true,
       body: Container(
@@ -22,19 +23,14 @@ class NewOrdersPage extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0D1D20),
-              Color(0xFF1D3538),
-            ],
+            colors: [kTertiaryColor, Color(0xFF1D3538)],
           ),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 600) {
-              return _buildLargeScreenLayout(context);
-            } else {
-              return _buildSmallScreenLayout(context);
-            }
+            return constraints.maxWidth > 600
+                ? _buildLargeScreenLayout(context)
+                : _buildSmallScreenLayout(context);
           },
         ),
       ),
@@ -56,25 +52,28 @@ class NewOrdersPage extends StatelessWidget {
                   'assets/devaj_logo.png',
                   width: 150,
                   height: 150,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.error, color: Colors.red, size: 150),
                 ),
               ),
               const SizedBox(height: 30),
               const Text(
                 'New Order For',
                 style: TextStyle(
-                  fontSize: 34,
+                  fontSize: 28, // Reduced for accessibility
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF75E5E2),
+                  color: kPrimaryColor,
                   fontFamily: 'Raleway',
                   shadows: [
                     Shadow(
-                      blurRadius: 10.0,
-                      color: Color(0xFF75E5E2),
+                      blurRadius: 8.0,
+                      color: kPrimaryColor,
                       offset: Offset(0, 0),
                     ),
                   ],
                 ),
                 textAlign: TextAlign.center,
+                semanticsLabel: 'Select New Order Type',
               ),
               const SizedBox(height: 64),
               _buildButton(
@@ -118,25 +117,28 @@ class NewOrdersPage extends StatelessWidget {
                 'assets/devaj_logo.png',
                 width: 120,
                 height: 120,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.error, color: Colors.red, size: 120),
               ),
             ),
             const SizedBox(height: 30),
             const Text(
               'New Order For',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 24, // Reduced for accessibility
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF75E5E2),
+                color: kPrimaryColor,
                 fontFamily: 'Raleway',
                 shadows: [
                   Shadow(
                     blurRadius: 8.0,
-                    color: Color(0xFF75E5E2),
+                    color: kPrimaryColor,
                     offset: Offset(0, 0),
                   ),
                 ],
               ),
               textAlign: TextAlign.center,
+              semanticsLabel: 'Select New Order Type',
             ),
             const SizedBox(height: 48),
             _buildButton(
@@ -167,7 +169,11 @@ class NewOrdersPage extends StatelessWidget {
   }
 
   Widget _buildButton(
-      BuildContext context, String title, IconData icon, Widget page) {
+    BuildContext context,
+    String title,
+    IconData icon,
+    Widget page,
+  ) {
     return ElevatedButton.icon(
       onPressed: () {
         Navigator.push(
@@ -175,7 +181,7 @@ class NewOrdersPage extends StatelessWidget {
           MaterialPageRoute(builder: (context) => page),
         );
       },
-      icon: Icon(icon, color: const Color(0xFF0D1D20), size: 28),
+      icon: Icon(icon, color: kTertiaryColor, size: 28),
       label: Text(
         title,
         style: const TextStyle(
@@ -183,10 +189,11 @@ class NewOrdersPage extends StatelessWidget {
           fontWeight: FontWeight.bold,
           fontFamily: 'Raleway',
         ),
+        semanticsLabel: title,
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF75E5E2),
-        foregroundColor: const Color(0xFF0D1D20),
+        backgroundColor: kPrimaryColor,
+        foregroundColor: kTertiaryColor,
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),

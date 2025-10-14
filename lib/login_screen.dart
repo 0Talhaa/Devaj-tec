@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
+import 'package:start_app/custom_loader.dart' as loader;
 import 'package:start_app/dashboard_screen.dart';
+import 'package:start_app/main.dart'; // For ConnectionForm
 import 'package:start_app/database_halper.dart';
-import 'package:start_app/main.dart'; // ConnectionForm ke liye import karna zaroori hai
 
 class LoginScreen extends StatefulWidget {
   final int tiltId;
@@ -14,8 +15,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -30,8 +30,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    // Animation ko sabse pehle initialize karen,
-    // taaki koi bhi setState() call hone par error na aaye.
+    // Initialize animation first to avoid issues with setState
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -50,29 +49,30 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  // Load saved connection details from SQLite
   Future<void> _loadConnectionDetails() async {
     final details = await DatabaseHelper.instance.getConnectionDetails();
+    loader.showLoader(context);
     if (details != null) {
       setState(() {
         _connectionDetails = details;
       });
       await _fetchUsers();
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No saved connection details found.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ConnectionForm()),
-        );
-      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No saved connection details found.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ConnectionForm()),
+      );
     }
   }
 
+  // Fetch usernames from SQL Server tbl_user
   Future<void> _fetchUsers() async {
     if (_connectionDetails == null) return;
 
@@ -87,9 +87,11 @@ class _LoginScreenState extends State<LoginScreen>
         databaseName: _connectionDetails!['dbName'] as String,
         username: _connectionDetails!['username'] as String,
         password: _connectionDetails!['password'] as String,
+        timeout: 10, // Added timeout for better error handling
       );
 
-      final result = await SqlConn.readData("SELECT username FROM tbl_user");
+      const query = "SELECT username FROM tbl_user";
+      final result = await SqlConn.readData(query);
       final parsedResult = jsonDecode(result) as List<dynamic>;
       final users = parsedResult
           .map((row) => (row as Map<String, dynamic>)['username'] as String)
@@ -100,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen>
         _selectedUser = users.isNotEmpty ? users.first : null;
       });
 
-      SqlConn.disconnect();
+      print('🟢 Fetched ${users.length} users: $users');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,18 +112,30 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         );
       }
-      print('Error fetching users: $e');
+      print('❌ Error fetching users: $e');
     } finally {
-      setState(() {
-        _isConnecting = false;
-      });
+      await SqlConn.disconnect();
+      loader.hideLoader();
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+        });
+      }
     }
   }
 
-Future<void> _login() async {
-  if (_formKey.currentState!.validate() &&
-      _selectedUser != null &&
-      _connectionDetails != null) {
+  // Perform login and sync data
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate() || _selectedUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a user and enter a password.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isConnecting = true;
     });
@@ -133,16 +147,17 @@ Future<void> _login() async {
         databaseName: _connectionDetails!['dbName'] as String,
         username: _connectionDetails!['username'] as String,
         password: _connectionDetails!['password'] as String,
+        timeout: 10, // Added timeout
       );
 
+      // Use formatted query
       final loginQuery =
           "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
       final loginResult = await SqlConn.readData(loginQuery);
 
-      // ✅ Agar login success hua
       if (jsonDecode(loginResult).isNotEmpty) {
-        // ❌ Admin ko allow mat karo
-        if (_selectedUser?.toLowerCase() == "admin") {
+        // Restrict admin login
+        if (_selectedUser!.toLowerCase() == "admin") {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -154,10 +169,11 @@ Future<void> _login() async {
           return;
         }
 
-        // ✅ Pehle purana user delete + naya save karo
+        // Save logged-in user
         await DatabaseHelper.instance.saveLoggedInUser(_selectedUser!);
+        print('🟢 Logged in user: $_selectedUser');
 
-        // ✅ Sync aur dashboard pe jao
+        // Sync data and navigate
         if (mounted) {
           await _syncDataAndLogin();
         }
@@ -180,79 +196,75 @@ Future<void> _login() async {
           ),
         );
       }
-      print('Error during login: $e');
+      print('❌ Error during login: $e');
     } finally {
-      SqlConn.disconnect();
-      setState(() {
-        _isConnecting = false;
-      });
+      await SqlConn.disconnect();
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+        });
+      }
     }
   }
-}
 
+  // Sync categories and items from SQL Server to SQLite
+  Future<void> _syncDataAndLogin() async {
+    try {
+      final categoriesEmpty = await DatabaseHelper.instance.isCategoriesTableEmpty();
+      final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
 
-  String _cleanString(String text) {
-    return text.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '').replaceAll(r'\', '');
-  }
+      if (categoriesEmpty || itemsEmpty) {
+        // Fetch categories
+        const categoryQuery = "SELECT id, category_name FROM CategoryPOS";
+        final categoryResult = await SqlConn.readData(categoryQuery);
+        final categories = (jsonDecode(categoryResult) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+        await DatabaseHelper.instance.saveCategories(categories);
+        print('🟢 Saved ${categories.length} categories locally');
 
-Future<void> _syncDataAndLogin() async {
-  try {
-    final categoriesEmpty = await DatabaseHelper.instance.isCategoriesTableEmpty();
-    final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
+        // Fetch items with join
+        const itemQuery = """
+          SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply
+          FROM itempos i
+          LEFT JOIN CategoryPOS c ON i.category_name = c.category_name
+          WHERE i.status = '1'
+        """;
+        final itemResult = await SqlConn.readData(itemQuery);
+        final items = (jsonDecode(itemResult) as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+        await DatabaseHelper.instance.saveItems(items);
+        print('🟢 Saved ${items.length} items locally');
+      } else {
+        print('ℹ️ Data already exists locally, skipping synchronization');
+      }
 
-    if (categoriesEmpty || itemsEmpty) {
-      final categoryResult = await SqlConn.readData(
-        "SELECT id, category_name FROM CategoryPOS",
-      );
-      final cleanedCategoryResult = _cleanString(categoryResult);
-      final categories = (jsonDecode(cleanedCategoryResult) as List<dynamic>)
-          .cast<Map<String, dynamic>>();
-      await DatabaseHelper.instance.saveCategories(categories);
-      print('Categories saved locally successfully.');
-
-      final itemQuery = """
-        SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply
-        FROM itempos i
-        LEFT JOIN categorypos c ON i.category_name = c.category_name
-        WHERE i.status = '1';
-      """;
-
-      final itemResult = await SqlConn.readData(itemQuery);
-      final cleanedItemResult = _cleanString(itemResult);
-      final items = (jsonDecode(cleanedItemResult) as List<dynamic>)
-          .cast<Map<String, dynamic>>();
-      await DatabaseHelper.instance.saveItems(items);
-      print('Items saved locally successfully.');
-    } else {
-      print('Data already exists locally, skipping synchronization.');
-    }
-
-    // ✅ Ab navigation karo
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DashboardScreen(
-            userName: _selectedUser!,
-            tiltId: widget.tiltId,
-            tiltName: widget.tiltName,
+      // Navigate to Dashboard
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(
+              userName: _selectedUser!,
+              tiltId: widget.tiltId,
+              tiltName: widget.tiltName,
+            ),
           ),
-        ),
-      );
-    }
-  } catch (e) {
-    print('Error during data synchronization: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Data synchronization failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Data synchronization failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('❌ Error during data synchronization: $e');
     }
   }
-}
 
+  // Removed _cleanString as it's not needed with proper SQL handling
 
   @override
   Widget build(BuildContext context) {
@@ -263,26 +275,20 @@ Future<void> _syncDataAndLogin() async {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF0D1D20), // Tertiary color
-              Color(0xFF153337), // Darker shade for gradient
-            ],
+            colors: [kTertiaryColor, Color(0xFF153337)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
-        // Screen size ke hisaab se layout chunenge
         child: isLargeScreen
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(21.0),
+                  padding: const EdgeInsets.all(24.0),
                   child: _buildLargeScreenLayout(),
                 ),
               )
-            // Chhoti screen ke liye, SingleChildScrollView istemal karenge
-            // taki keyboard aane par overflow na ho
             : SingleChildScrollView(
-                padding: const EdgeInsets.all(21.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Center(child: _buildSmallScreenLayout()),
               ),
       ),
@@ -293,11 +299,11 @@ Future<void> _syncDataAndLogin() async {
     return Card(
       elevation: 20,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: const Color(0xFF282828),
+      color: kInputBgColor,
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Left Side: Logo and text
+            // Left Side: Branding
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -307,8 +313,8 @@ Future<void> _syncDataAndLogin() async {
                   ),
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF75E5E2).withOpacity(0.8),
-                      const Color(0xFF41938F).withOpacity(0.8),
+                      kPrimaryColor.withOpacity(0.8),
+                      kSecondaryColor.withOpacity(0.8),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -323,7 +329,7 @@ Future<void> _syncDataAndLogin() async {
                       ScaleTransition(
                         scale: _pulseAnimation,
                         child: Image.asset(
-                          'assets/devaj_logo.png', // Aapki company ka logo
+                          'assets/devaj_logo.png',
                           width: 150,
                           height: 150,
                         ),
@@ -334,7 +340,7 @@ Future<void> _syncDataAndLogin() async {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF0D1D20),
+                          color: kTertiaryColor,
                           fontFamily: 'Raleway',
                         ),
                         textAlign: TextAlign.center,
@@ -344,7 +350,7 @@ Future<void> _syncDataAndLogin() async {
                         'Welcome to the future of data management.',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Color(0xFF0D1D20),
+                          color: kTertiaryColor,
                           fontFamily: 'Raleway',
                           fontStyle: FontStyle.italic,
                         ),
@@ -377,7 +383,7 @@ Future<void> _syncDataAndLogin() async {
     return Card(
       elevation: 20,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: const Color(0xFF282828),
+      color: kInputBgColor,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -391,8 +397,7 @@ Future<void> _syncDataAndLogin() async {
                   scale: _pulseAnimation.value,
                   child: Image.asset(
                     'assets/devaj_logo.png',
-                    height:
-                        logoHeight, // Logo ki height ko orientation ke hisab se adjust karein
+                    height: logoHeight,
                   ),
                 );
               },
@@ -403,12 +408,12 @@ Future<void> _syncDataAndLogin() async {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF75E5E2),
+                color: kPrimaryColor,
                 fontFamily: 'Raleway',
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: spacing), // Spacing ko bhi adjust karein
+            SizedBox(height: spacing),
             _buildForm(),
           ],
         ),
@@ -426,19 +431,19 @@ Future<void> _syncDataAndLogin() async {
             value: _selectedUser,
             decoration: const InputDecoration(
               labelText: 'Select User',
-              prefixIcon: Icon(Icons.person),
+              prefixIcon: Icon(Icons.person, color: kPrimaryColor),
             ),
             style: const TextStyle(
-              color: Color(0xFF75E5E2),
+              color: kPrimaryColor,
               fontFamily: 'Raleway',
             ),
-            dropdownColor: const Color(0xFF282828),
+            dropdownColor: kInputBgColor,
             items: _users.map((user) {
               return DropdownMenuItem<String>(
                 value: user,
                 child: Text(
                   user,
-                  style: const TextStyle(color: Color(0xFF75E5E2)),
+                  style: const TextStyle(color: kPrimaryColor),
                 ),
               );
             }).toList(),
@@ -456,16 +461,17 @@ Future<void> _syncDataAndLogin() async {
             controller: _passwordController,
             obscureText: _obscurePassword,
             style: const TextStyle(
-              color: Color(0xFF75E5E2),
+              color: kPrimaryColor,
               fontFamily: 'Raleway',
             ),
             decoration: InputDecoration(
               labelText: 'Password',
               hintText: 'Enter your password',
-              prefixIcon: const Icon(Icons.lock),
+              prefixIcon: const Icon(Icons.lock, color: kPrimaryColor),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: kPrimaryColor,
                 ),
                 onPressed: () {
                   setState(() {
@@ -482,8 +488,6 @@ Future<void> _syncDataAndLogin() async {
             onPressed: _isConnecting ? null : _login,
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 55),
-              backgroundColor: const Color(0xFF75E5E2),
-              foregroundColor: const Color(0xFF0D1D20),
               textStyle: const TextStyle(
                 fontFamily: 'Raleway',
                 fontWeight: FontWeight.bold,
@@ -495,7 +499,7 @@ Future<void> _syncDataAndLogin() async {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation(Color(0xFF0D1D20)),
+                      valueColor: AlwaysStoppedAnimation(kTertiaryColor),
                     ),
                   )
                 : const Text('Login'),
@@ -503,24 +507,23 @@ Future<void> _syncDataAndLogin() async {
           const SizedBox(height: 20),
           GestureDetector(
             onTap: () async {
-              // Purani details clear karo
               await DatabaseHelper.instance.clearConnectionDetails();
-
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                  (route) => false, // saari purani routes hata do
+                  (route) => false,
                 );
               }
             },
             child: const Text(
               'Change Connection Details',
               style: TextStyle(
-                color: Color(0xFF41938F),
+                color: kSecondaryColor,
                 fontFamily: 'Raleway',
                 decoration: TextDecoration.underline,
               ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],

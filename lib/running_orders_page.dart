@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
+import 'package:start_app/custom_loader.dart';
+import 'package:start_app/custom_loader.dart' as Loader show showLoader, hideLoader;
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/cash_bill_screen.dart';
 import 'package:start_app/order_screen.dart' show OrderScreen;
@@ -36,6 +38,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
   Future<bool> _ensureConnection() async {
     if (_connDetails == null) {
       final conn = await DatabaseHelper.instance.getConnectionDetails();
+      // Loader.showLoader(context);
       if (conn == null) {
         setState(() {
           _error = "⚠️ No saved connection details found.";
@@ -152,6 +155,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
         ),
       );
     } catch (e) {
+    
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("❌ Edit navigation error: $e")));
