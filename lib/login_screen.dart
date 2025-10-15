@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   // Load saved connection details from SQLite
   Future<void> _loadConnectionDetails() async {
     final details = await DatabaseHelper.instance.getConnectionDetails();
-    loader.showLoader(context);
+    // loader.showLoader(context);
     if (details != null) {
       setState(() {
         _connectionDetails = details;
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       print('❌ Error fetching users: $e');
     } finally {
       await SqlConn.disconnect();
-      loader.hideLoader();
+      // loader.hideLoader();
       if (mounted) {
         setState(() {
           _isConnecting = false;

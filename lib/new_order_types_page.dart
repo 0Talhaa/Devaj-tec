@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:start_app/main.dart'; // For color constants
 import 'package:start_app/dining_page.dart';
-import 'package:start_app/take_away_page.dart';
-import 'package:start_app/delivery_page.dart';
+import 'package:start_app/take_away_screen.dart';
+import 'package:start_app/delivery_screen.dart';
 
 class NewOrdersPage extends StatelessWidget {
   const NewOrdersPage({super.key});
@@ -87,14 +87,22 @@ class NewOrdersPage extends StatelessWidget {
                 context,
                 'Take Away',
                 Icons.shopping_bag,
-                const TakeAwayPage(),
+                 TakeAwayScreen(
+                  waiterName: 'Admin',
+                  selectedTiltId: 1,
+                  tabUniqueId: null,
+                ),
               ),
               const SizedBox(height: 32),
               _buildButton(
                 context,
                 'Delivery',
                 Icons.delivery_dining,
-                const DeliveryPage(),
+                DeliveryScreen(
+                  waiterName: 'Admin',
+                  selectedTiltId: 1,
+                  tabUniqueId: null,
+                ),
               ),
             ],
           ),
@@ -152,14 +160,22 @@ class NewOrdersPage extends StatelessWidget {
               context,
               'Take Away',
               Icons.shopping_bag,
-              const TakeAwayPage(),
+              TakeAwayScreen(
+                waiterName: 'Admin',
+                selectedTiltId: 1,
+                tabUniqueId: null,
+              ),
             ),
             const SizedBox(height: 24),
             _buildButton(
               context,
               'Delivery',
               Icons.delivery_dining,
-              const DeliveryPage(),
+              DeliveryScreen(
+                waiterName: 'Admin',
+                selectedTiltId: 1,
+                tabUniqueId: null,
+              ),
             ),
             const SizedBox(height: 24),
           ],
