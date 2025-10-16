@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9, // Incremented version to add default connection details
+      version: 10, // Incremented version to remove default connection details
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -96,15 +96,7 @@ class DatabaseHelper {
         username TEXT NOT NULL
       )
     ''');
-
-    // Insert default connection details from logs
-    await db.execute('''
-      INSERT INTO tbl_connection_details (
-        ip, serverName, dbName, username, password, port, tiltId, tiltName, deviceName, isCashier
-      ) VALUES (
-        '192.168.137.117', 'Your_Default_Server_Name', 'HNFOODMULTAN', 'sa', '123321Pa', '1433', '30', 'T2', 'Lenovo TB-X505F', 1
-      )
-    ''');
+    // Removed default connection details insertion
   }
 
   // Handle schema upgrades
@@ -150,14 +142,10 @@ class DatabaseHelper {
       ''');
     }
 
-    if (oldVersion < 9) {
-      await db.execute('''
-        INSERT INTO tbl_connection_details (
-          ip, serverName, dbName, username, password, port, tiltId, tiltName, deviceName, isCashier
-        ) VALUES (
-          '192.168.137.117', 'Your_Default_Server_Name', 'HNFOODMULTAN', 'sa', '123321Pa', '1433', '30', 'T2', 'Lenovo TB-X505F', 1
-        )
-      ''');
+    // Version 9 and below had default connection details, removed in version 10
+    if (oldVersion < 10) {
+      // Clear any existing default connection details to enforce manual input
+      await db.delete('tbl_connection_details');
     }
   }
 
@@ -191,7 +179,7 @@ class DatabaseHelper {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    debugPrint('🟢 Saved connection details: ip=$ip, dbName=$dbName');
+    debugPrint('🟢 Saved connection details: ip=$ip, dbName=$dbName, tiltName=$tiltName');
   }
 
   // Get connection details
@@ -202,38 +190,27 @@ class DatabaseHelper {
       debugPrint('📥 Retrieved connection details: ${result.first}');
       return result.first;
     }
-    debugPrint('⚠️ No connection details found, returning defaults');
-    return {
-      'ip': '192.168.137.117',
-      'serverName': 'Your_Default_Server_Name',
-      'dbName': 'HNFOODMULTAN',
-      'username': 'sa',
-      'password': '123321Pa',
-      'port': '1433',
-      'tiltId': '30',
-      'tiltName': 'T2',
-      'deviceName': 'Lenovo TB-X505F',
-      'isCashier': 1,
-    };
+    debugPrint('⚠️ No connection details found');
+    return null; // Return null to enforce manual input
   }
 
   // Get status from postransectionsetting
   Future<String> getSQLPosTransactionSetting(String type) async {
     try {
-      if (!await SqlConn.isConnected) {
-        final defaultConn = await getConnectionDetails();
-        if (defaultConn == null) {
-          debugPrint('⚠️ No default connection details available');
-          return "";
-        }
+      final connDetails = await getConnectionDetails();
+      if (connDetails == null) {
+        debugPrint('⚠️ No connection details available for postransectionsetting');
+        return "0"; // Default status
+      }
 
+      if (!await SqlConn.isConnected) {
         await SqlConn.connect(
-          ip: defaultConn['ip'],
-          port: defaultConn['port'],
-          databaseName: defaultConn['dbName'],
-          username: defaultConn['username'],
-          password: defaultConn['password'],
-          timeout: 10, // Added timeout for consistency
+          ip: connDetails['ip'],
+          port: connDetails['port'],
+          databaseName: connDetails['dbName'],
+          username: connDetails['username'],
+          password: connDetails['password'],
+          timeout: 10,
         );
       }
 
@@ -245,7 +222,7 @@ class DatabaseHelper {
       final data = jsonDecode(result) as List<dynamic>;
       if (data.isEmpty) {
         debugPrint('⚠️ No status found for type=$type in postransectionsetting');
-        return "0"; // Default status for TakeAwayServer and TakeAwayCustomerInfo
+        return "0";
       }
 
       return data[0]['status']?.toString() ?? "0";
@@ -263,7 +240,7 @@ class DatabaseHelper {
       final connDetails = await getConnectionDetails();
       if (connDetails == null) {
         debugPrint('⚠️ No connection details available for TakeAway settings');
-        return null;
+        return null; // Return null to enforce manual input
       }
 
       final serverStatus = await getSQLPosTransactionSetting('TakeAwayServer');
@@ -291,42 +268,26 @@ class DatabaseHelper {
       return settings;
     } catch (e) {
       debugPrint('❌ Error fetching TakeAway settings: $e');
-      return {
-        'ip': '192.168.137.117',
-        'port': '1433',
-        'dbName': 'HNFOODMULTAN',
-        'username': 'sa',
-        'password': '123321Pa',
-        'tiltId': '30',
-        'tiltName': 'T2',
-        'deviceName': 'Lenovo TB-X505F',
-        'isPrintKot': 1,
-        'defaultCustomerName': 'WalkIn',
-        'defaultPhone': '',
-        'defaultAddress': '',
-        'requireAddress': true,
-        'serverStatus': '0',
-        'customerStatus': '0',
-      };
+      return null; // Return null to enforce manual input
     }
   }
 
   // Get connection details from postransectionsetting
   Future<Map<String, dynamic>?> getConnectionDetailsFromPostransectionSetting(String type) async {
     try {
-      if (!await SqlConn.isConnected) {
-        final defaultConn = await getConnectionDetails();
-        if (defaultConn == null) {
-          debugPrint('⚠️ No default connection details available');
-          return null;
-        }
+      final connDetails = await getConnectionDetails();
+      if (connDetails == null) {
+        debugPrint('⚠️ No connection details available for postransectionsetting');
+        return {'status': '0'};
+      }
 
+      if (!await SqlConn.isConnected) {
         await SqlConn.connect(
-          ip: defaultConn['ip'],
-          port: defaultConn['port'],
-          databaseName: defaultConn['dbName'],
-          username: defaultConn['username'],
-          password: defaultConn['password'],
+          ip: connDetails['ip'],
+          port: connDetails['port'],
+          databaseName: connDetails['dbName'],
+          username: connDetails['username'],
+          password: connDetails['password'],
           timeout: 10,
         );
       }
@@ -395,7 +356,7 @@ class DatabaseHelper {
           'sale_price': item['sale_price'],
           'codes': item['codes'],
           'category_name': item['category_name'],
-          'is_tax_apply': item['is_tax_apply'],
+          'is_tax_apply': item['is_tax_apply'] ?? 0,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );

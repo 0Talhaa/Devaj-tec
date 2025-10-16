@@ -1,3 +1,4 @@
+
 // ignore_for_file: unused_local_variable, unused_element, use_build_context_synchronously
 
 import 'dart:convert';
@@ -512,17 +513,17 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
           backgroundColor: const Color(0xFF182022),
           title: Text(
             'Reduce/Remove $itemName',
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: reasonController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                 decoration: InputDecoration(
                   hintText: 'Enter reason for reduction',
-                  hintStyle: const TextStyle(color: Colors.white54),
+                  hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                   filled: true,
                   fillColor: Colors.grey.shade800,
                   border: OutlineInputBorder(
@@ -533,10 +534,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
               const SizedBox(height: 8),
               TextField(
                 controller: authUsernameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                 decoration: InputDecoration(
                   hintText: 'Enter authenticate username',
-                  hintStyle: const TextStyle(color: Colors.white54),
+                  hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                   filled: true,
                   fillColor: Colors.grey.shade800,
                   border: OutlineInputBorder(
@@ -551,7 +552,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
               onPressed: () => Navigator.of(ctx).pop(false),
               child: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway'),
               ),
             ),
             ElevatedButton(
@@ -573,7 +574,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 }
                 Navigator.of(ctx).pop(true);
               },
-              child: const Text('Next'),
+              child: const Text('Next', style: TextStyle(fontFamily: 'Raleway')),
             ),
           ],
         );
@@ -618,7 +619,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
               backgroundColor: const Color(0xFF182022),
               title: Text(
                 'Authenticate for $itemName',
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -626,10 +627,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                   TextField(
                     controller: passwordController,
                     obscureText: obscurePassword,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                     decoration: InputDecoration(
                       hintText: 'Enter password',
-                      hintStyle: const TextStyle(color: Colors.white54),
+                      hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                       filled: true,
                       fillColor: Colors.grey.shade800,
                       border: OutlineInputBorder(
@@ -655,7 +656,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: const Text(
                     'Cancel',
-                    style: TextStyle(color: Colors.redAccent),
+                    style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway'),
                   ),
                 ),
                 ElevatedButton(
@@ -715,7 +716,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                       );
                     }
                   },
-                  child: const Text('Authenticate'),
+                  child: const Text('Authenticate', style: TextStyle(fontFamily: 'Raleway')),
                 ),
               ],
             );
@@ -736,16 +737,16 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           backgroundColor: const Color(0xFF182022),
           title: const Text('Add / Edit Comments',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: Colors.white, fontFamily: 'Raleway')),
           content: SizedBox(
             width: double.maxFinite,
             child: TextField(
               controller: _commentController,
               maxLines: 4,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
               decoration: InputDecoration(
                 hintText: 'Enter special instructions',
-                hintStyle: const TextStyle(color: Colors.white54),
+                hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                 filled: true,
                 fillColor: Colors.grey.shade800,
                 border: OutlineInputBorder(
@@ -757,7 +758,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Cancel',
-                  style: TextStyle(color: Colors.redAccent)),
+                  style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -805,7 +806,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 });
                 Navigator.of(ctx).pop();
               },
-              child: const Text('Save'),
+              child: const Text('Save', style: TextStyle(fontFamily: 'Raleway')),
             ),
           ],
         );
@@ -980,17 +981,17 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           backgroundColor: const Color(0xFF182022),
-          title: const Text('Customer Details', style: TextStyle(color: Colors.white)),
+          title: const Text('Customer Details', style: TextStyle(color: Colors.white, fontFamily: 'Raleway')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: customerNameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                   decoration: InputDecoration(
                     hintText: 'Enter customer name',
-                    hintStyle: const TextStyle(color: Colors.white54),
+                    hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                     filled: true,
                     fillColor: Colors.grey.shade800,
                     border: OutlineInputBorder(
@@ -1001,11 +1002,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 const SizedBox(height: 8),
                 TextField(
                   controller: phoneController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                   keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
                     hintText: 'Enter phone number',
-                    hintStyle: const TextStyle(color: Colors.white54),
+                    hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                     filled: true,
                     fillColor: Colors.grey.shade800,
                     border: OutlineInputBorder(
@@ -1016,11 +1017,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 const SizedBox(height: 8),
                 TextField(
                   controller: addressController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
                   maxLines: 3,
                   decoration: InputDecoration(
                     hintText: 'Enter delivery address',
-                    hintStyle: const TextStyle(color: Colors.white54),
+                    hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                     filled: true,
                     fillColor: Colors.grey.shade800,
                     border: OutlineInputBorder(
@@ -1034,7 +1035,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.redAccent)),
+              child: const Text('Cancel', style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -1060,7 +1061,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                   'address': address,
                 });
               },
-              child: const Text('Confirm'),
+              child: const Text('Confirm', style: TextStyle(fontFamily: 'Raleway')),
             ),
           ],
         );
@@ -1087,7 +1088,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
     required int isPrintKot,
     required String customerName,
     required String phone,
-    required String address,
+    required String address, // Kept for compatibility, not used in query
   }) {
     return """
       DECLARE @OrderKey INT;
@@ -1095,6 +1096,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
           @TiltId = $tiltId,
           @CounterId = 0,
           @Waiter = '${widget.waiterName}',
+          @ShiftNo = '',
           @TableNo = '',
           @cover = 0,
           @tab_unique_id = '$tabUniqueIdN',
@@ -1108,123 +1110,195 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
           @OrderType = 'DELIVERY',
           @Customer = '$customerName',
           @Tele = '$phone',
-          @Address = '$address',
           @Comment = '$commentList',
+          @CustomerMasterid = '0',
           @OrderKey = @OrderKey OUTPUT;
       SELECT @OrderKey AS id;
     """;
   }
 
-  Future<int?> _saveOrderToSqlServer({
-    required String customerName,
-    required String phone,
-    required String address,
-  }) async {
-    if (_activeOrderItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items in the order')),
-      );
-      return null;
-    }
-
-    // Filter out invalid items
-    final validOrderItems = _activeOrderItems
-        .where((item) => item.itemId != '0' && item.itemId.isNotEmpty)
-        .toList();
-    if (validOrderItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No valid items to save')),
-      );
-      return null;
-    }
-
-    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-    final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
-
-    setState(() {
-      _currentUser = loggedUser ?? "Admin";
-    });
-
-    final tiltId = int.tryParse(connDetails?['tiltId'] ?? '0') ?? 0;
-    final deviceNo = connDetails?['deviceName']?.isNotEmpty ?? false
-        ? connDetails!['deviceName']
-        : 'POS01';
-    final isPrintKot = connDetails?['isCashier'] ?? 1;
-    final tabUniqueId = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty
-        ? widget.tabUniqueId!
-        : _tabUniqueId!;
-
-    if (tabUniqueId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid tab_unique_id'), backgroundColor: Colors.red),
-      );
-      return null;
-    }
-
-    final qtyList = validOrderItems.map((e) => e.quantity.toString()).join(',');
-    final productCodes = validOrderItems.map((e) => e.itemId).join(',');
-    final orderDtlIds = validOrderItems.map((e) => e.orderDetailId).join(',');
-    final commentList = validOrderItems.map((e) => e.comments).join(',');
-
-    final query = _buildOrderQuery(
-      tabUniqueIdN: tabUniqueId,
-      qtyList: qtyList,
-      productCodes: productCodes,
-      orderDtlIds: orderDtlIds,
-      commentList: commentList,
-      tiltId: tiltId,
-      deviceNo: deviceNo,
-      isPrintKot: isPrintKot,
-      customerName: customerName,
-      phone: phone,
-      address: address,
+Future<int?> _saveOrderToSqlServer({
+  required String customerName,
+  required String phone,
+  required String address,
+}) async {
+  if (_activeOrderItems.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No items in the order'), backgroundColor: Colors.red),
     );
+    return null;
+  }
 
-    debugPrint("===== FINAL QUERY =====\n$query");
-    debugPrint("📝 Qty List => $qtyList");
-    debugPrint("📝 Product Codes => $productCodes");
-    debugPrint("📝 Order Detail IDs => $orderDtlIds");
-    debugPrint("📝 Comments => $commentList");
-    debugPrint("📝 Customer Name => $customerName");
-    debugPrint("📝 Phone => $phone");
-    debugPrint("📝 Address => $address");
+  // Filter out invalid items
+  final validOrderItems = _activeOrderItems
+      .where((item) => item.itemId != '0' && item.itemId.isNotEmpty)
+      .toList();
+  if (validOrderItems.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No valid items to save'), backgroundColor: Colors.red),
+    );
+    return null;
+  }
 
-    try {
-      final result = await _mssql.getData(query);
-      int? newOrderId;
-
-      try {
-        final decoded = jsonDecode(result);
-        if (decoded is List && decoded.isNotEmpty) {
-          newOrderId = int.tryParse(decoded[0]['id']?.toString() ?? '');
-        } else if (decoded is Map && decoded['id'] != null) {
-          newOrderId = int.tryParse(decoded['id']?.toString() ?? '');
-        } else {
-          newOrderId = int.tryParse(result.trim());
-        }
-      } catch (_) {
-        newOrderId = int.tryParse(result.trim());
-      }
-
-      if (newOrderId != null && newOrderId > 0) {
-        setState(() {
-          _activeOrderItems.clear();
-          _orderTotalAmount = 0.0;
-          _totalTax = 0.0;
-          _totalDiscount = 0.0;
-        });
-        _showSuccessDialog(newOrderId);
-      }
-
-      return newOrderId;
-    } catch (e) {
-      debugPrint('Error placing order: $e');
+  // Ensure database connection is ready
+  if (!_isMssqlReady) {
+    await _setupSqlConn();
+    if (!_isMssqlReady) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing order: $e')),
+        const SnackBar(
+          content: Text('Failed to connect to SQL Server'),
+          backgroundColor: Colors.red,
+        ),
       );
       return null;
     }
   }
+
+  final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+  final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
+
+  if (connDetails == null || loggedUser == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Connection details or user not found'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return null;
+  }
+
+  setState(() {
+    _currentUser = loggedUser;
+  });
+
+  final tiltId = int.tryParse(connDetails['tiltId']?.toString() ?? '0') ?? 0;
+  final deviceNo = connDetails['deviceName']?.isNotEmpty ?? false
+      ? connDetails['deviceName']
+      : 'POS01';
+  final isPrintKot = connDetails['isCashier'] ?? 1;
+  final tabUniqueId = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty
+      ? widget.tabUniqueId!
+      : _tabUniqueId!;
+
+  if (tabUniqueId.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Invalid tab_unique_id'), backgroundColor: Colors.red),
+    );
+    return null;
+  }
+
+  // Prepare lists and escape special characters
+  final qtyList = validOrderItems.map((e) => e.quantity.toString()).join(',');
+  final productCodes = validOrderItems.map((e) => e.itemId).join(',');
+  final orderDtlIds = validOrderItems.map((e) => e.orderDetailId).join(',');
+  final commentList = validOrderItems
+      .map((e) => e.comments.replaceAll("'", "''")) // Escape single quotes
+      .join(',');
+
+  // Validate lists
+  if (qtyList.isEmpty || productCodes.isEmpty || orderDtlIds.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Invalid order data: Empty quantities, product codes, or order detail IDs'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return null;
+  }
+
+  final query = _buildOrderQuery(
+    tabUniqueIdN: tabUniqueId,
+    qtyList: qtyList,
+    productCodes: productCodes,
+    orderDtlIds: orderDtlIds,
+    commentList: commentList,
+    tiltId: tiltId,
+    deviceNo: deviceNo,
+    isPrintKot: isPrintKot,
+    customerName: customerName,
+    phone: phone,
+    address: address,
+  );
+
+  // Detailed logging
+  debugPrint("===== ORDER SAVE QUERY =====");
+  debugPrint("Query: $query");
+  debugPrint("TiltId: $tiltId");
+  debugPrint("DeviceNo: $deviceNo");
+  debugPrint("IsPrintKOT: $isPrintKot");
+  debugPrint("TabUniqueId: $tabUniqueId");
+  debugPrint("QtyList: $qtyList");
+  debugPrint("ProductCodes: $productCodes");
+  debugPrint("OrderDtlIds: $orderDtlIds");
+  debugPrint("CommentList: $commentList");
+  debugPrint("CustomerName: $customerName");
+  debugPrint("Phone: $phone");
+  debugPrint("TotalAmount: $_orderTotalAmount");
+  debugPrint("User: $_currentUser");
+
+  try {
+    final result = await _mssql.getData(query);
+    debugPrint("===== RAW SQL RESULT =====");
+    debugPrint("Result: $result");
+
+    int? newOrderId;
+    try {
+      final decoded = jsonDecode(result);
+      debugPrint("Decoded Result: $decoded");
+      if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
+        newOrderId = int.tryParse(decoded[0]['id'].toString());
+      } else if (decoded is Map && decoded['id'] != null) {
+        newOrderId = int.tryParse(decoded['id'].toString());
+      } else {
+        debugPrint("Unexpected result format: $decoded");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unexpected result format from SQL Server'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return null;
+      }
+    } catch (e) {
+      debugPrint("JSON Parsing Error: $e");
+      // Fallback: Try parsing result as plain integer
+      newOrderId = int.tryParse(result.trim());
+      if (newOrderId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to parse order ID: $e'), backgroundColor: Colors.red),
+        );
+        return null;
+      }
+    }
+
+    if (newOrderId != null && newOrderId > 0) {
+      setState(() {
+        _activeOrderItems.clear();
+        _orderTotalAmount = 0.0;
+        _totalTax = 0.0;
+        _totalDiscount = 0.0;
+        _tabUniqueId = null; // Reset for new order
+      });
+      _showSuccessDialog(newOrderId);
+      debugPrint("✅ Order saved successfully with ID: $newOrderId");
+      return newOrderId;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save order: Invalid order ID returned'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+  } catch (e, stackTrace) {
+    debugPrint("❌ Error saving order: $e\nStackTrace: $stackTrace");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error saving order: $e'), backgroundColor: Colors.red),
+    );
+    return null;
+  }
+}
 
   void _showSuccessDialog(int orderId) {
     showDialog(
@@ -1268,7 +1342,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 Navigator.push(
                     context, MaterialPageRoute(builder: (_) => BillScreen()));
               },
-              child: const Text("View Bill"),
+              child: const Text("View Bill", style: TextStyle(fontFamily: 'Raleway')),
             ),
           ),
         ],
@@ -1278,22 +1352,131 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Delivery - Waiter: ${widget.waiterName}',
-          style: const TextStyle(fontFamily: 'Raleway'),
+    return Theme(
+      data: ThemeData(
+        primaryColor: const Color(0xFF75E5E2),
+        scaffoldBackgroundColor: const Color(0xFF0D1D20),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0D1D20),
+          foregroundColor: Colors.white,
+          elevation: 4,
+          titleTextStyle: TextStyle(
+            fontFamily: 'Raleway',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        backgroundColor: const Color(0xFF0D1D20),
-        foregroundColor: Colors.white,
+        tabBarTheme: const TabBarThemeData(
+          labelColor: Color(0xFF75E5E2),
+          unselectedLabelColor: Colors.white70,
+          labelStyle: TextStyle(
+            fontFamily: 'Raleway',
+            fontWeight: FontWeight.bold,
+          ),
+          unselectedLabelStyle: TextStyle(fontFamily: 'Raleway'),
+          indicator: UnderlineTabIndicator(
+            borderSide: BorderSide(
+              color: Color(0xFF75E5E2),
+              width: 2,
+            ),
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF1C2526),
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(
+            fontFamily: 'Raleway',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Raleway',
+            fontSize: 16,
+            color: Colors.white,
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'Raleway',
+            fontSize: 14,
+            color: Colors.white70,
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFF75E5E2),
+          foregroundColor: Color(0xFF0D1D20),
+        ),
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: Colors.red,
+          contentTextStyle: TextStyle(
+            fontFamily: 'Raleway',
+            color: Colors.white,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF75E5E2),
+            foregroundColor: const Color(0xFF0D1D20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            textStyle: const TextStyle(fontFamily: 'Raleway'),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.redAccent,
+            textStyle: const TextStyle(fontFamily: 'Raleway'),
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Color(0xFF2C3E40),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: Color(0xFF75E5E2)),
+          ),
+          hintStyle: TextStyle(
+            color: Colors.white54,
+            fontFamily: 'Raleway',
+          ),
+          labelStyle: TextStyle(
+            color: Colors.white54,
+            fontFamily: 'Raleway',
+          ),
+        ),
       ),
-      body: Container(
-        color: const Color(0xFF0D1D20),
-        child: _isLoading
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Delivery - ${_finalTiltName ?? "D1"}'),
+          bottom: _tabController != null && _categories.isNotEmpty
+              ? TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabs: _categories
+                      .map((category) => Tab(text: category['category_name'] as String))
+                      .toList(),
+                  onTap: (index) {
+                    setState(() {
+                      _selectedCategory = _categories[index]['category_name'] as String;
+                    });
+                  },
+                )
+              : null,
+        ),
+        body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF75E5E2))))
+                  color: Color(0xFF75E5E2),
+                ),
+              )
             : LayoutBuilder(
                 builder: (context, constraints) {
                   return constraints.maxWidth > 600
@@ -1301,6 +1484,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                       : _buildMobileLayout();
                 },
               ),
+        // floatingActionButton: FloatingActionButton.extended(
+        //   onPressed: _showOrderSheet,
+        //   label: Text('Order Dekho (${_activeOrderItems.length})'),
+        //   icon: const Icon(Icons.shopping_cart),
+        // ),
       ),
     );
   }
@@ -1317,7 +1505,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Divider(color: Colors.white24),
-                _buildOrderListWithDetails(),
+                Expanded(child: _buildOrderListWithDetails()),
                 _buildSummaryRow('Total Items', '${_activeOrderItems.length}'),
                 _buildSummaryRow('Order Tax', ' ${_totalTax.toStringAsFixed(2)}'),
                 _buildSummaryRow('Discount', ' ${_totalDiscount.toStringAsFixed(2)}'),
@@ -1325,31 +1513,38 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Bill:',
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontFamily: 'Raleway')),
-                    Text(' ${_orderTotalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF75E5E2),
-                            fontFamily: 'Raleway')),
+                    const Text(
+                      'Total Bill:',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFamily: 'Raleway',
+                      ),
+                    ),
+                    Text(
+                      ' ${_orderTotalAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF75E5E2),
+                        fontFamily: 'Raleway',
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _activeOrderItems.isEmpty ? null : _showCustomerDetailsDialog,
+                  onPressed: _activeOrderItems.isEmpty ? null : () => _showCustomerDetailsDialog(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF75E5E2),
                     foregroundColor: const Color(0xFF0D1D20),
                     minimumSize: const Size(double.infinity, 50),
                     textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Raleway'),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
                   ),
                   child: const Text('Place Order'),
                 ),
@@ -1359,42 +1554,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
         ),
         Expanded(
           flex: 2,
-          child: Column(
-            children: [
-              SizedBox(
-                height: 60,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected = _selectedCategory == category['category_name'];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: ActionChip(
-                        label: Text(category['category_name']),
-                        backgroundColor: isSelected
-                            ? const Color(0xFF75E5E2)
-                            : Colors.grey.shade800,
-                        labelStyle: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFF0D1D20)
-                                : Colors.white,
-                            fontFamily: 'Raleway'),
-                        onPressed: () {
-                          setState(() {
-                            _selectedCategory = category['category_name'] as String;
-                          });
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: GridView.builder(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _selectedCategory != null && _categoryItems[_selectedCategory] != null
+                ? GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 8.0,
@@ -1405,19 +1568,15 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                     itemBuilder: (context, index) {
                       final items = _categoryItems[_selectedCategory] ?? [];
                       final item = items[index];
-                      final double baseTax = 5.0 + (1 * 0.1);
-                      double baseDiscount = 0.0;
-                      if (1 >= 10) {
-                        baseDiscount = 15.0;
-                      } else if (1 >= 5) {
-                        baseDiscount = 10.0;
-                      }
+                      final double baseTax = double.tryParse(item['tax_percent']?.toString() ?? '5.0') ?? 5.0;
+                      final double baseDiscount = double.tryParse(item['discount_percent']?.toString() ?? '0.0') ?? 0.0;
 
                       return Card(
                         color: Colors.grey.shade900,
                         elevation: 4,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: InkWell(
                           onTap: () => _addItemToOrder(item),
                           onLongPress: () => _showCommentDialog(OrderItem.fromMap(item)),
@@ -1426,49 +1585,77 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.local_dining,
-                                    color: Color(0xFF75E5E2), size: 40),
+                                const Icon(
+                                  Icons.local_dining,
+                                  color: Color(0xFF75E5E2),
+                                  size: 40,
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
                                   item['item_name'],
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Raleway'),
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Raleway',
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   ' ${item['sale_price'].toStringAsFixed(2)}',
                                   style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontFamily: 'Raleway'),
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                    fontFamily: 'Raleway',
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text('Tax:',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    Text(' ${baseTax.toStringAsFixed(1)}%',
-                                        style: const TextStyle(
-                                            color: Colors.lightGreen,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold)),
-                                    const Text(' | ',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    const Text('Disc:',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    Text(' ${baseDiscount.toStringAsFixed(1)}%',
-                                        style: const TextStyle(
-                                            color: Colors.orange,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold)),
+                                    const Text(
+                                      'Tax:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    Text(
+                                      ' ${baseTax.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.lightGreen,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    const Text(
+                                      ' | ',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Disc:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    Text(
+                                      ' ${baseDiscount.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -1477,10 +1664,16 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                         ),
                       );
                     },
+                  )
+                : const Center(
+                    child: Text(
+                      'No items available',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontFamily: 'Raleway',
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
           ),
         ),
       ],
@@ -1523,13 +1716,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                     itemCount: items.length,
                     itemBuilder: (context, index) {
                       final item = items[index];
-                      final double baseTax = 5.0 + (1 * 0.1);
-                      double baseDiscount = 0.0;
-                      if (1 >= 10) {
-                        baseDiscount = 15.0;
-                      } else if (1 >= 5) {
-                        baseDiscount = 10.0;
-                      }
+                      final double baseTax = double.tryParse(item['tax_percent']?.toString() ?? '5.0') ?? 5.0;
+                      final double baseDiscount = double.tryParse(item['discount_percent']?.toString() ?? '0.0') ?? 0.0;
+
                       return Card(
                         color: Colors.grey.shade900,
                         elevation: 4,
@@ -1543,49 +1732,77 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.local_dining,
-                                    color: Color(0xFF75E5E2), size: 40),
+                                const Icon(
+                                  Icons.local_dining,
+                                  color: Color(0xFF75E5E2),
+                                  size: 40,
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
                                   item['item_name'],
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Raleway'),
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Raleway',
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   ' ${item['sale_price'].toStringAsFixed(2)}',
                                   style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontFamily: 'Raleway'),
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                    fontFamily: 'Raleway',
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text('Tax:',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    Text(' ${baseTax.toStringAsFixed(1)}%',
-                                        style: const TextStyle(
-                                            color: Colors.lightGreen,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold)),
-                                    const Text(' | ',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    const Text('Disc:',
-                                        style:
-                                            TextStyle(color: Colors.white70, fontSize: 12)),
-                                    Text(' ${baseDiscount.toStringAsFixed(1)}%',
-                                        style: const TextStyle(
-                                            color: Colors.orange,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold)),
+                                    const Text(
+                                      'Tax:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    Text(
+                                      ' ${baseTax.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.lightGreen,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    const Text(
+                                      ' | ',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Disc:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
+                                    Text(
+                                      ' ${baseDiscount.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -1629,22 +1846,29 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Current Delivery Order',
-                          style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF75E5E2),
-                              fontFamily: 'Raleway')),
-                      Text('Waiter: ${widget.waiterName}',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
-                              fontFamily: 'Raleway')),
+                      const Text(
+                        'Current Delivery Order',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF75E5E2),
+                          fontFamily: 'Raleway',
+                        ),
+                      ),
+                      Text(
+                        'Waiter: ${widget.waiterName}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                          fontFamily: 'Raleway',
+                        ),
+                      ),
                     ],
                   ),
                   IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context)),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
               const Divider(color: Colors.white24),
@@ -1656,18 +1880,24 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total Bill:',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontFamily: 'Raleway')),
-                  Text(' ${_orderTotalAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF75E5E2),
-                          fontFamily: 'Raleway')),
+                  const Text(
+                    'Total Bill:',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                  Text(
+                    ' ${_orderTotalAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF75E5E2),
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1678,9 +1908,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                   foregroundColor: const Color(0xFF0D1D20),
                   minimumSize: const Size(double.infinity, 50),
                   textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Raleway'),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Raleway',
+                  ),
                 ),
                 child: const Text('Place Order'),
               ),
@@ -1694,53 +1925,91 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
   Widget _buildOrderListWithDetails() {
     final isRunningOrder = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
 
-    return Expanded(
+    return SingleChildScrollView(
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
             decoration: BoxDecoration(
-                color: Colors.grey.shade800,
-                borderRadius: BorderRadius.circular(8.0)),
+              color: Colors.grey.shade800,
+              borderRadius: BorderRadius.circular(8.0),
+            ),
             child: const Row(
               children: [
                 Expanded(
-                    flex: 3,
-                    child: Text('Item',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w900))),
+                  flex: 3,
+                  child: Text(
+                    'Item',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                ),
                 Expanded(
-                    flex: 2,
-                    child: Text('Price',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold))),
+                  flex: 2,
+                  child: Text(
+                    'Price',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                ),
                 Expanded(
-                    flex: 3,
-                    child: Center(
-                        child: Text('Qty',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)))),
+                  flex: 3,
+                  child: Center(
+                    child: Text(
+                      'Qty',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Raleway',
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(
-                    flex: 2,
-                    child: Text('Disc',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold))),
+                  flex: 2,
+                  child: Text(
+                    'Disc',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                ),
                 Expanded(
-                    flex: 2,
-                    child: Text('Tax',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold))),
+                  flex: 2,
+                  child: Text(
+                    'Tax',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                ),
                 Expanded(
-                    flex: 3,
-                    child: Text('Total',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.right)),
+                  flex: 3,
+                  child: Text(
+                    'Total',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
               ],
             ),
           ),
-          Expanded(
+          SizedBox(
+            height: 200,
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: _activeOrderItems.length,
@@ -1762,28 +2031,38 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(orderItem.itemName,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: 'Raleway')),
+                                Text(
+                                  orderItem.itemName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'Raleway',
+                                  ),
+                                ),
                                 if (orderItem.comments.isNotEmpty)
-                                  Text(orderItem.comments,
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                          fontStyle: FontStyle.italic)),
+                                  Text(
+                                    orderItem.comments,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      fontFamily: 'Raleway',
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
                           Expanded(
-                              flex: 2,
-                              child: Text(
-                                  orderItem.salePrice.toStringAsFixed(2),
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Raleway'))),
+                            flex: 2,
+                            child: Text(
+                              orderItem.salePrice.toStringAsFixed(2),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Raleway',
+                              ),
+                            ),
+                          ),
                           Expanded(
                             flex: 3,
                             child: Row(
@@ -1795,23 +2074,31 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                                   child: Container(
                                     padding: const EdgeInsets.all(3),
                                     decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: Color(0xFF75E5E2), width: 1.5)),
-                                    child: const Icon(Icons.remove,
-                                        size: 14, color: Color(0xFF75E5E2)),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFF75E5E2),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.remove,
+                                      size: 14,
+                                      color: Color(0xFF75E5E2),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 SizedBox(
                                   width: 24,
                                   child: Text(
-                                      orderItem.quantity.toString(),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: 'Raleway')),
+                                    orderItem.quantity.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: 'Raleway',
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 InkWell(
@@ -1827,45 +2114,58 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                          color: isRunningOrder
-                                              ? Colors.grey
-                                              : Color(0xFF75E5E2),
-                                          width: 1.5),
-                                    ),
-                                    child: Icon(
-                                        Icons.add,
-                                        size: 14,
                                         color: isRunningOrder
                                             ? Colors.grey
-                                            : Color(0xFF75E5E2)),
+                                            : const Color(0xFF75E5E2),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.add,
+                                      size: 14,
+                                      color: isRunningOrder
+                                          ? Colors.grey
+                                          : const Color(0xFF75E5E2),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Expanded(
-                              flex: 2,
-                              child: Text(
-                                  '${orderItem.discountPercent.toStringAsFixed(0)}%',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Raleway'))),
+                            flex: 2,
+                            child: Text(
+                              '${orderItem.discountPercent.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Raleway',
+                              ),
+                            ),
+                          ),
                           Expanded(
-                              flex: 2,
-                              child: Text(taxAmount.toStringAsFixed(2),
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Raleway'))),
+                            flex: 2,
+                            child: Text(
+                              taxAmount.toStringAsFixed(2),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Raleway',
+                              ),
+                            ),
+                          ),
                           Expanded(
-                              flex: 3,
-                              child: Text(itemTotal.toStringAsFixed(2),
-                                  style: const TextStyle(
-                                      color: Color(0xFF75E5E2),
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Raleway'),
-                                  textAlign: TextAlign.right)),
+                            flex: 3,
+                            child: Text(
+                              itemTotal.toStringAsFixed(2),
+                              style: const TextStyle(
+                                color: Color(0xFF75E5E2),
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Raleway',
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
                         ],
                       ),
                       const Divider(color: Colors.white10),
@@ -1886,15 +2186,23 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontFamily: 'Raleway')),
-          Text(value,
-              style: const TextStyle(
-                  color: Color(0xFF75E5E2),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Raleway')),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontFamily: 'Raleway',
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF75E5E2),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Raleway',
+            ),
+          ),
         ],
       ),
     );

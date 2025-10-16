@@ -21,7 +21,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text('DASHBOARD'),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -110,7 +110,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 30),
                         Text(
-                          'Welcome, ${userName.toUpperCase()}!',
+                          'WELCOME ${userName.toUpperCase()}',
                           style: const TextStyle(
                             fontSize: 28, // Slightly reduced for accessibility
                             fontWeight: FontWeight.bold,
@@ -123,15 +123,6 @@ class DashboardScreen extends StatelessWidget {
                                 offset: Offset(0, 0),
                               ),
                             ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        Text(
-                          'Tilt: $tiltName (ID: $tiltId)', // Added to display tilt info
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: kSecondaryColor,
-                            fontFamily: 'Raleway',
                           ),
                           textAlign: TextAlign.center,
                         ),

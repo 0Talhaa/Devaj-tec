@@ -484,77 +484,145 @@ class _OrderScreenState extends State<OrderScreen>
     });
   }
 
-  Future<int> insertItemLess({
-    required String tabUniqueId,
-    required String orderDetailId,
-    required String username,
-    required String authenticateUsername,
-    required String reason,
-    required String tiltId,
-    required int quantity,
-  }) async {
-    int id = 0;
-    try {
-      if (!_isMssqlReady) {
-        await _setupSqlConn();
-      }
-      if (!_isMssqlReady) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Database connection not established'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return id;
-      }
-
-      final query =
-          """
-        DECLARE @Result INT;
-        EXEC spItemLessPunch 
-            @OrderDtlID = '$orderDetailId',
-            @TabUniqueID = '$tabUniqueId',
-            @qty = '$quantity',
-            @Reason = '$reason',
-            @UserLogin = '$username',
-            @username = '$authenticateUsername',
-            @Tiltid = $tiltId;
-      """;
-
-      debugPrint("📝 ItemLess Query: $query");
-      final result = await _mssql.getData(query);
-      debugPrint("📤 ItemLess Result: $result");
-
-      final decoded = jsonDecode(result);
-      if (decoded is List && decoded.isNotEmpty) {
-        id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
-      } else if (decoded is Map && decoded['id'] != null) {
-        id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
-      }
-
-      if (id > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Item reduced successfully, ID: $id')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to reduce item'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-
-      return id;
-    } catch (e) {
-      debugPrint("❌ Error in insertItemLess: $e");
+Future<int> insertItemLess({
+  required String tabUniqueId,
+  required String orderDetailId,
+  required String username,
+  required String authenticateUsername,
+  required String reason,
+  required String tiltId,
+  required int quantity,
+}) async {
+  int id = 0;
+  try {
+    // Ensure connection details are available
+    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+    if (connDetails == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error reducing item: $e'),
+        const SnackBar(
+          content: Text('Database connection details not found'),
           backgroundColor: Colors.red,
         ),
       );
       return id;
+    }
+
+    // Connect to SQL Server
+    if (!await SqlConn.isConnected) {
+      await SqlConn.connect(
+        ip: connDetails['ip'] as String,
+        port: connDetails['port'] as String,
+        databaseName: connDetails['dbName'] as String,
+        username: connDetails['username'] as String,
+        password: connDetails['password'] as String,
+        timeout: 10,
+      );
+    }
+
+    // Updated query to handle @Output parameter
+    final query = """
+      DECLARE @Output INT;
+      EXEC spItemLessPunch 
+          @OrderDtlID = '$orderDetailId',
+          @TabUniqueID = '$tabUniqueId',
+          @qty = $quantity,
+          @Reason = '$reason',
+          @UserLogin = '$username',
+          @UserApproval = '$authenticateUsername',
+          @TiltId = '$tiltId',
+          @Output = @Output OUTPUT;
+      SELECT @Output AS id;
+    """;
+
+    debugPrint("📝 ItemLess Query: $query");
+    final result = await SqlConn.readData(query);
+    debugPrint("📤 ItemLess Result: $result");
+
+    // Parse the result
+    final decoded = jsonDecode(result);
+    if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
+      id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
+    } else if (decoded is Map && decoded['id'] != null) {
+      id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
+    }
+
+    if (id > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Item reduced successfully, ID: $id')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to reduce item'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    return id;
+  } catch (e) {
+    debugPrint("❌ Error in insertItemLess: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error reducing item: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return id;
+  } finally {
+    if (await SqlConn.isConnected) {
+      await SqlConn.disconnect();
+      debugPrint('🛑 SQL Server connection closed');
+    }
+  }
+}
+  // Helper method to fetch usernames from tbl_user
+  Future<List<String>> _fetchUsernames() async {
+    try {
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) {
+        debugPrint('⚠️ No connection details available');
+        return [];
+      }
+
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] as String,
+          port: connDetails['port'] as String,
+          databaseName: connDetails['dbName'] as String,
+          username: connDetails['username'] as String,
+          password: connDetails['password'] as String,
+          timeout: 10,
+        );
+      }
+
+      final query = "SELECT username FROM tbl_user";
+      final result = await SqlConn.readData(query);
+      debugPrint("📝 Username Query: $query");
+      debugPrint("📤 Username Result: $result");
+
+      final decoded = jsonDecode(result) as List<dynamic>;
+      final usernames = decoded
+          .map((row) => row['username']?.toString())
+          .where((username) => username != null && username.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      return usernames;
+    } catch (e) {
+      debugPrint('❌ Error fetching usernames: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to fetch usernames: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return [];
+    } finally {
+      if (await SqlConn.isConnected) {
+        await SqlConn.disconnect();
+        debugPrint('🛑 SQL Server connection closed');
+      }
     }
   }
 
@@ -564,8 +632,18 @@ class _OrderScreenState extends State<OrderScreen>
     Function(int) onSuccess,
   ) async {
     final TextEditingController reasonController = TextEditingController();
-    final TextEditingController authUsernameController =
-        TextEditingController();
+    String? selectedUsername; // Track selected username
+    List<String> usernames = await _fetchUsernames(); // Fetch usernames
+
+    if (usernames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No users found for authentication'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final result = await showDialog<bool>(
       context: context,
@@ -596,11 +674,10 @@ class _OrderScreenState extends State<OrderScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: authUsernameController,
-                style: const TextStyle(color: Colors.white),
+              DropdownButtonFormField<String>(
+                value: selectedUsername,
                 decoration: InputDecoration(
-                  hintText: 'Enter authenticate username',
+                  hintText: 'Select authenticate username',
                   hintStyle: const TextStyle(color: Colors.white54),
                   filled: true,
                   fillColor: Colors.grey.shade800,
@@ -608,6 +685,17 @@ class _OrderScreenState extends State<OrderScreen>
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+                dropdownColor: Colors.grey.shade800,
+                style: const TextStyle(color: Colors.white),
+                items: usernames.map((username) {
+                  return DropdownMenuItem<String>(
+                    value: username,
+                    child: Text(username),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedUsername = value;
+                },
               ),
             ],
           ),
@@ -626,12 +714,11 @@ class _OrderScreenState extends State<OrderScreen>
               ),
               onPressed: () {
                 final reason = reasonController.text.trim();
-                final authUsername = authUsernameController.text.trim();
-                if (reason.isEmpty || authUsername.isEmpty) {
+                if (reason.isEmpty || selectedUsername == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Please provide reason and authenticate username',
+                        'Please provide reason and select a username',
                       ),
                       backgroundColor: Colors.red,
                     ),
@@ -653,121 +740,140 @@ class _OrderScreenState extends State<OrderScreen>
     if (index == -1) return;
     final orderItem = _activeOrderItems[index];
 
-    // Show authentication dialog
+    // Show authentication dialog with selected username
     await _showAuthDialog(
       itemId: itemId,
       itemName: itemName,
       reason: reasonController.text.trim(),
-      authUsername: authUsernameController.text.trim(),
+      authUsername: selectedUsername!,
       orderItem: orderItem,
       onSuccess: onSuccess,
     );
   }
 
-  Future<void> _showAuthDialog({
-    required String itemId,
-    required String itemName,
-    required String reason,
-    required String authUsername,
-    required OrderItem orderItem,
-    required Function(int) onSuccess,
-  }) async {
-    final TextEditingController passwordController = TextEditingController();
-    bool obscurePassword = true;
+ Future<void> _showAuthDialog({
+  required String itemId,
+  required String itemName,
+  required String reason,
+  required String authUsername,
+  required OrderItem orderItem,
+  required Function(int) onSuccess,
+}) async {
+  final TextEditingController passwordController = TextEditingController();
+  bool obscurePassword = true;
 
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              backgroundColor: const Color(0xFF182022),
-              title: Text(
-                'Authenticate for $itemName',
-                style: const TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: passwordController,
-                    obscureText: obscurePassword,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Enter password',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.grey.shade800,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+  await showDialog(
+    context: context,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: const Color(0xFF182022),
+            title: Text(
+              'Authenticate for $itemName',
+              style: const TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Enter password',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.grey.shade800,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white54,
                       ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.white54,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
-                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscurePassword = !obscurePassword;
+                        });
+                      },
                     ),
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF75E5E2),
-                    foregroundColor: const Color(0xFF0D1D20),
-                  ),
-                  onPressed: () async {
-                    final password = passwordController.text.trim();
-                    if (password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a password'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF75E5E2),
+                  foregroundColor: const Color(0xFF0D1D20),
+                ),
+                onPressed: () async {
+                  final password = passwordController.text.trim();
+                  if (password.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a password'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
 
-                    // Verify credentials
-                    final connDetails = await DatabaseHelper.instance
-                        .getConnectionDetails();
-                    final loggedUser = await DatabaseHelper.instance
-                        .getLoggedInUser();
+                  // Verify credentials
+                  final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+                  final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
 
-                    if (connDetails == null || loggedUser == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'User not logged in or connection details missing',
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      Navigator.of(ctx).pop();
-                      return;
-                    }
+                  if (connDetails == null || loggedUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('User not logged in or connection details missing'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    Navigator.of(ctx).pop();
+                    return;
+                  }
 
-                    // Assume password is stored in plain text for simplicity
-                    if (authUsername == loggedUser &&
-                        password == connDetails['password']) {
+                  // Check if entered username matches logged-in user
+                  if (authUsername != loggedUser) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Username does not match logged-in user'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Connect to SQL Server and verify credentials
+                  try {
+                    await SqlConn.connect(
+                      ip: connDetails['ip'] as String,
+                      port: connDetails['port'] as String,
+                      databaseName: connDetails['dbName'] as String,
+                      username: connDetails['username'] as String,
+                      password: connDetails['password'] as String,
+                      timeout: 10,
+                    );
+
+                    final loginQuery =
+                        "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '$password'";
+                    final loginResult = await SqlConn.readData(loginQuery);
+
+                    if (jsonDecode(loginResult).isNotEmpty) {
+                      // Authentication successful, call insertItemLess
                       final result = await insertItemLess(
                         tabUniqueId: _tabUniqueId ?? '',
                         quantity: orderItem.quantity,
@@ -780,26 +886,50 @@ class _OrderScreenState extends State<OrderScreen>
 
                       if (result > 0) {
                         onSuccess(result);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Item reduced successfully, ID: $result'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to reduce item'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                       }
                       Navigator.of(ctx).pop();
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Invalid username or password'),
+                          content: Text('Invalid password'),
                           backgroundColor: Colors.red,
                         ),
                       );
                     }
-                  },
-                  child: const Text('Authenticate'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+                  } catch (e) {
+                    debugPrint('❌ Error during authentication: $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Authentication failed: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  } finally {
+                    await SqlConn.disconnect();
+                  }
+                },
+                child: const Text('Authenticate'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   Future<void> _showCommentDialog(OrderItem item) async {
     final defaultText = item.comments.isNotEmpty
@@ -921,23 +1051,11 @@ class _OrderScreenState extends State<OrderScreen>
       return;
     }
 
+    final isExistingOrder = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
+
     setState(() {
-      final existingIndex = _activeOrderItems.indexWhere(
-        (e) => e.itemId == itemId,
-      );
-      if (existingIndex != -1) {
-        final updatedItem = OrderItem(
-          itemId: _activeOrderItems[existingIndex].itemId,
-          itemName: _activeOrderItems[existingIndex].itemName,
-          salePrice: _activeOrderItems[existingIndex].salePrice,
-          quantity: _activeOrderItems[existingIndex].quantity + 1,
-          taxPercent: _activeOrderItems[existingIndex].taxPercent,
-          discountPercent: _activeOrderItems[existingIndex].discountPercent,
-          comments: _activeOrderItems[existingIndex].comments,
-          orderDetailId: _activeOrderItems[existingIndex].orderDetailId,
-        );
-        _activeOrderItems[existingIndex] = updatedItem;
-      } else {
+      if (isExistingOrder) {
+        // For existing orders, add as a new entry without merging
         _activeOrderItems.add(
           OrderItem(
             itemId: itemId,
@@ -955,6 +1073,42 @@ class _OrderScreenState extends State<OrderScreen>
             orderDetailId: '0',
           ),
         );
+      } else {
+        // For new orders, merge if exists
+        final existingIndex = _activeOrderItems.indexWhere(
+          (e) => e.itemId == itemId,
+        );
+        if (existingIndex != -1) {
+          final updatedItem = OrderItem(
+            itemId: _activeOrderItems[existingIndex].itemId,
+            itemName: _activeOrderItems[existingIndex].itemName,
+            salePrice: _activeOrderItems[existingIndex].salePrice,
+            quantity: _activeOrderItems[existingIndex].quantity + 1,
+            taxPercent: _activeOrderItems[existingIndex].taxPercent,
+            discountPercent: _activeOrderItems[existingIndex].discountPercent,
+            comments: _activeOrderItems[existingIndex].comments,
+            orderDetailId: _activeOrderItems[existingIndex].orderDetailId,
+          );
+          _activeOrderItems[existingIndex] = updatedItem;
+        } else {
+          _activeOrderItems.add(
+            OrderItem(
+              itemId: itemId,
+              itemName: item['item_name'] ?? 'Unknown',
+              salePrice:
+                  double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
+              quantity: 1,
+              taxPercent:
+                  double.tryParse(item['tax_percent']?.toString() ?? '5.0') ??
+                  5.0,
+              discountPercent:
+                  double.tryParse(item['discount_percent']?.toString() ?? '0') ??
+                  0.0,
+              comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
+              orderDetailId: '0',
+            ),
+          );
+        }
       }
       _calculateTotalBill();
     });
@@ -1959,31 +2113,22 @@ class _OrderScreenState extends State<OrderScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 InkWell(
-                                  onTap: isRunningOrder
-                                      ? null
-                                      : () =>
-                                            _addItemToOrder(orderItem.toMap()),
-                                  onLongPress: isRunningOrder
-                                      ? null
-                                      : () => _showCommentDialog(orderItem),
+                                  onTap: () => _addItemToOrder(orderItem.toMap()),
+                                  onLongPress: () => _showCommentDialog(orderItem),
                                   borderRadius: BorderRadius.circular(20),
                                   child: Container(
                                     padding: const EdgeInsets.all(3),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isRunningOrder
-                                            ? Colors.grey
-                                            : Color(0xFF75E5E2),
+                                        color: Color(0xFF75E5E2),
                                         width: 1.5,
                                       ),
                                     ),
                                     child: Icon(
                                       Icons.add,
                                       size: 14,
-                                      color: isRunningOrder
-                                          ? Colors.grey
-                                          : Color(0xFF75E5E2),
+                                      color: Color(0xFF75E5E2),
                                     ),
                                   ),
                                 ),
