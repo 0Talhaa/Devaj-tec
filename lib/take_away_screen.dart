@@ -1,4 +1,3 @@
-
 // ignore_for_file: unused_local_variable, unused_element, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, unused_field
 
 import 'dart:convert';
@@ -9,6 +8,7 @@ import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/bill_screen.dart';
 import 'package:intl/intl.dart';
+
 
 // Constants for order calculations
 class OrderConstants {
@@ -65,7 +65,53 @@ class OrderItem {
   }
 }
 
-// Screen for selecting a waiter
+// Stub for MainPOSScreen
+class MainPOSScreen extends StatelessWidget {
+  final String waiterName;
+  final String tabUniqueId;
+  final List<OrderItem> orderItems;
+  final String customerName;
+  final String customerPhone;
+  final String customerPosId;
+
+  const MainPOSScreen({
+    super.key,
+    required this.waiterName,
+    required this.tabUniqueId,
+    required this.orderItems,
+    required this.customerName,
+    required this.customerPhone,
+    required this.customerPosId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Main POS')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Main POS Screen', style: TextStyle(color: Colors.white, fontFamily: 'Raleway')),
+            Text('Waiter: $waiterName'),
+            Text('Customer: $customerName ($customerPhone)'),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => BillScreen()),
+                );
+              },
+              child: const Text('Proceed to Bill'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// WaiterSelectionScreen
 class WaiterSelectionScreen extends StatelessWidget {
   final List<String> waiters;
   final Function(String) onWaiterSelected;
@@ -152,18 +198,24 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
   double _totalTax = 0.0;
   double _totalDiscount = 0.0;
   int? _finalTiltId;
+  int? _is_update;
   String? _finalTiltName;
   String? _tabUniqueId;
   String? _customerName;
   String? _phone;
   String _customerPosId = "0";
   bool _customerDetailsCollected = false;
+  String _takeAwayCustomerInfoStatus = '';
+  String _takeAwayServerStatus = '';
 
   @override
   void initState() {
     super.initState();
     _mssql = MssqlConnection.getInstance();
-    _checkTakeAwayCustomerInfoStatus();
+    // Show customer details dialog first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showCustomerDetailsDialog();
+    });
   }
 
   @override
@@ -172,24 +224,255 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
     super.dispose();
   }
 
-  Future<void> _checkTakeAwayCustomerInfoStatus() async {
+  // Show customer details dialog and then check settings
+  Future<void> _showCustomerDetailsDialog() async {
+    final nameController = TextEditingController(text: _customerName ?? 'WalkIn');
+    final phoneController = TextEditingController(text: _phone ?? '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: const Color(0xFF182022),
+          title: const Text(
+            'Customer Details',
+            style: TextStyle(color: Colors.white, fontFamily: 'Raleway'),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
+                decoration: InputDecoration(
+                  labelText: 'Customer Name',
+                  hintText: 'Enter customer name',
+                  hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
+                  filled: true,
+                  fillColor: Colors.grey.shade800,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: phoneController,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
+                decoration: InputDecoration(
+                  labelText: 'Mobile Number',
+                  hintText: 'Enter mobile number',
+                  hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
+                  filled: true,
+                  fillColor: Colors.grey.shade800,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF75E5E2),
+                foregroundColor: const Color(0xFF0D1D20),
+              ),
+              onPressed: () {
+                setState(() {
+                  _customerName = nameController.text.trim().isEmpty ? 'WalkIn' : nameController.text.trim();
+                  _phone = phoneController.text.trim();
+                  _customerDetailsCollected = true;
+                });
+                Navigator.of(ctx).pop(true);
+              },
+              child: const Text('Submit', style: TextStyle(fontFamily: 'Raleway')),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      // After collecting customer details, check settings and proceed
+      await _checkSettingsAndNavigate();
+    } else {
+      // If dialog is dismissed, pop back
+      Navigator.of(context).pop();
+    }
+  }
+
+  // Check settings and navigate based on TakeAwayCustomerInfo and TakeAwayServer
+  Future<void> _checkSettingsAndNavigate() async {
     try {
+      // Fetch settings
+      _takeAwayCustomerInfoStatus = await _getSQLPosTransactionSetting('TakeAwayCustomerInfo');
+      _takeAwayServerStatus = await _getSQLPosTransactionSetting('TakeAwayServer');
+
+      // Validate customer details if TakeAwayCustomerInfo is not "0"
+      if (_takeAwayCustomerInfoStatus != '0' && (_phone == null || _phone!.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: Mobile number is required'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Re-show dialog
+        await _showCustomerDetailsDialog();
+        return;
+      }
+
+      // Fetch other settings
       _takeAwaySettings = await DatabaseHelper.instance.getTakeAwaySettings();
       setState(() {
+        _is_update = int.tryParse(_takeAwaySettings?['is_update']?.toString() ?? '0') ?? 0;
         _finalTiltId = int.tryParse(_takeAwaySettings?['tiltId']?.toString() ?? '33') ?? 33;
         _finalTiltName = _takeAwaySettings?['tiltName']?.toString() ?? 'T2';
         _deviceNo = _takeAwaySettings?['deviceName']?.toString() ?? 'Lenovo TB-X505F';
         _isPrintKot = _takeAwaySettings?['isPrintKot'] ?? 1;
       });
-      await _initConnectionAndLoadData();
+
+      // Navigate based on TakeAwayServer
+      if (_takeAwayServerStatus == '0') {
+        // Navigate to MainPOSScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainPOSScreen(
+              waiterName: widget.waiterName,
+              tabUniqueId: widget.tabUniqueId ?? '',
+              orderItems: _activeOrderItems,
+              customerName: _customerName ?? 'WalkIn',
+              customerPhone: _phone ?? '',
+              customerPosId: _customerPosId,
+            ),
+          ),
+        );
+      } else {
+        // Navigate to WaiterSelectionScreen
+        await _showWaiterSelectionScreen();
+      }
     } catch (e) {
-      debugPrint('❌ Error checking TakeAway settings: $e');
+      debugPrint('❌ Error checking settings: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading settings: $e'),
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  // Fetch setting from postransectionsetting
+  Future<String> _getSQLPosTransactionSetting(String type) async {
+    try {
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) return '';
+
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] ?? '192.168.137.117',
+          port: connDetails['port'] ?? '1433',
+          databaseName: connDetails['dbName'] ?? 'HNFOODMULTAN',
+          username: connDetails['username'] ?? 'sa',
+          password: connDetails['password'] ?? '123321Pa',
+          timeout: 10,
+        );
+      }
+
+      final query = "SELECT status FROM postransectionsetting WHERE type = '$type'";
+      final result = await SqlConn.readData(query);
+      final decoded = jsonDecode(result) as List<dynamic>;
+      String status = '';
+      if (decoded.isNotEmpty) {
+        status = decoded.first['status']?.toString() ?? '';
+      }
+      await SqlConn.disconnect();
+      return status;
+    } catch (e) {
+      debugPrint('❌ Error fetching setting $type: $e');
+      return '';
+    }
+  }
+
+  // Show WaiterSelectionScreen
+  Future<void> _showWaiterSelectionScreen() async {
+    List<String> waiters = await _fetchWaiters();
+    if (waiters.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No waiters available'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WaiterSelectionScreen(
+          waiters: waiters,
+          onWaiterSelected: (selectedWaiter) {
+            setState(() {
+              _currentUser = selectedWaiter;
+            });
+            // Proceed to load data
+            _initConnectionAndLoadData();
+          },
+        ),
+      ),
+    );
+  }
+
+  // Fetch waiters from Waiter table
+  Future<List<String>> _fetchWaiters() async {
+    try {
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) {
+        debugPrint('⚠️ No connection details available');
+        return [];
+      }
+
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] as String,
+          port: connDetails['port'] as String,
+          databaseName: connDetails['dbName'] as String,
+          username: connDetails['username'] as String,
+          password: connDetails['password'] as String,
+          timeout: 10,
+        );
+      }
+
+      // Filter waiters by Tiltid to match _finalTiltId
+      final query = "SELECT waiter_name FROM Waiter WHERE is_update = '$_is_update'";
+      final result = await SqlConn.readData(query);
+      debugPrint("📝 Waiter Query: $query");
+      debugPrint("📤 Waiter Result: $result");
+
+      final decoded = jsonDecode(result) as List<dynamic>;
+      final waiters = decoded
+          .map((row) => row['waiter_name']?.toString())
+          .where((waiterName) => waiterName != null && waiterName.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      return waiters;
+    } catch (e) {
+      debugPrint('❌ Error fetching waiters: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to fetch waiters: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return [];
+    } finally {
+      if (await SqlConn.isConnected) {
+        await SqlConn.disconnect();
+        debugPrint('🛑 SQL Server connection closed');
+      }
     }
   }
 
@@ -226,8 +509,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
   Future<void> _loadTakeAwaySettings() async {
     _takeAwaySettings = await DatabaseHelper.instance.getTakeAwaySettings();
     setState(() {
-      _customerName = _takeAwaySettings?['defaultCustomerName'] ?? 'WalkIn';
-      _phone = _takeAwaySettings?['defaultPhone'] ?? '';
+      _is_update = int.tryParse(_takeAwaySettings?['is_update']?.toString() ?? '0') ?? 0;
       _finalTiltId = int.tryParse(_takeAwaySettings?['tiltId']?.toString() ?? '33') ?? 33;
       _finalTiltName = _takeAwaySettings?['tiltName']?.toString() ?? 'T2';
       _deviceNo = _takeAwaySettings?['deviceName']?.toString() ?? 'Lenovo TB-X505F';
@@ -377,116 +659,278 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
     debugPrint('📦 Current logged-in user: $_currentUser');
   }
 
-  Future<bool> _checkUser(String username, String password) async {
-    try {
-      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-      if (connDetails == null) return false;
+  void _addItemToOrder(Map<String, dynamic> item) {
+    final itemId = item['id']?.toString() ?? '0';
+    if (itemId == '0' || itemId.isEmpty) {
+      debugPrint("⚠️ Warning: Invalid item ID for ${item['item_name']}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cannot add ${item['item_name']}: Invalid item ID'),
+        ),
+      );
+      return;
+    }
 
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: connDetails['ip'] as String,
-          port: connDetails['port'] as String,
-          databaseName: connDetails['dbName'] as String,
-          username: connDetails['username'] as String,
-          password: connDetails['password'] as String,
-          timeout: 10,
+    final isExistingOrder = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
+
+    setState(() {
+      if (isExistingOrder) {
+        _activeOrderItems.add(
+          OrderItem(
+            itemId: itemId,
+            itemName: item['item_name'] ?? 'Unknown',
+            quantity: 1,
+            price: double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
+            orderDetailId: '0',
+            comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
+          ),
         );
+      } else {
+        final existingIndex = _activeOrderItems.indexWhere((e) => e.itemId == itemId);
+        if (existingIndex != -1) {
+          _activeOrderItems[existingIndex] = OrderItem(
+            itemId: _activeOrderItems[existingIndex].itemId,
+            itemName: _activeOrderItems[existingIndex].itemName,
+            quantity: _activeOrderItems[existingIndex].quantity + 1,
+            price: _activeOrderItems[existingIndex].price,
+            orderDetailId: _activeOrderItems[existingIndex].orderDetailId,
+            comments: _activeOrderItems[existingIndex].comments,
+          );
+        } else {
+          _activeOrderItems.add(
+            OrderItem(
+              itemId: itemId,
+              itemName: item['item_name'] ?? 'Unknown',
+              quantity: 1,
+              price: double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
+              orderDetailId: '0',
+              comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
+            ),
+          );
+        }
       }
+      _calculateTotalBill();
+    });
+  }
 
-      final query = "SELECT username FROM tbl_user WHERE username = '$username' AND pwd = '$password'";
-      final result = await SqlConn.readData(query);
-      return jsonDecode(result).isNotEmpty;
-    } catch (e) {
-      debugPrint('❌ Error checking user: $e');
-      return false;
-    } finally {
-      if (await SqlConn.isConnected) {
-        await SqlConn.disconnect();
-      }
+  void _decreaseItemQuantity(String itemId) {
+    final index = _activeOrderItems.indexWhere((o) => o.itemId == itemId);
+    if (index == -1) return;
+
+    final orderItem = _activeOrderItems[index];
+    if (widget.tabUniqueId == null || widget.tabUniqueId!.isEmpty) {
+      setState(() {
+        if (orderItem.quantity > 1) {
+          _activeOrderItems[index] = OrderItem(
+            itemId: orderItem.itemId,
+            itemName: orderItem.itemName,
+            quantity: orderItem.quantity - 1,
+            price: orderItem.price,
+            orderDetailId: orderItem.orderDetailId,
+            comments: orderItem.comments,
+          );
+        } else {
+          _activeOrderItems.removeAt(index);
+        }
+        _calculateTotalBill();
+      });
+    } else {
+      _showReasonDialog(itemId, orderItem.itemName, (int resultId) {
+        setState(() {
+          if (orderItem.quantity > 1) {
+            _activeOrderItems[index] = OrderItem(
+              itemId: orderItem.itemId,
+              itemName: orderItem.itemName,
+              quantity: orderItem.quantity - 1,
+              price: orderItem.price,
+              orderDetailId: orderItem.orderDetailId,
+              comments: orderItem.comments,
+            );
+          } else {
+            _activeOrderItems.removeAt(index);
+          }
+          _calculateTotalBill();
+        });
+      });
     }
   }
 
-  Future<int> insertItemLess({
-    required String tabUniqueId,
-    required String orderDetailId,
-    required String username,
-    required String authenticateUsername,
-    required String reason,
-    required String tiltId,
-    required int quantity,
-  }) async {
-    int id = 0;
-    try {
-      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-      if (connDetails == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Database connection details not found'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return id;
-      }
+  void _calculateTotalBill() {
+    double total = 0.0;
+    double tax = 0.0;
+    for (var item in _activeOrderItems) {
+      final subtotal = item.subtotal;
+      final taxAmount = item.tax;
+      total += subtotal + taxAmount;
+      tax += taxAmount;
+    }
+    setState(() {
+      _orderTotalAmount = total;
+      _totalTax = tax;
+      _totalDiscount = 0.0;
+    });
+  }
 
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: connDetails['ip'] as String,
-          port: connDetails['port'] as String,
-          databaseName: connDetails['dbName'] as String,
-          username: connDetails['username'] as String,
-          password: connDetails['password'] as String,
-          timeout: 10,
-        );
-      }
+  String _buildOrderQuery({
+    required String tabUniqueIdN,
+    required String qtyList,
+    required String productCodes,
+    required String orderDtlIds,
+    required String commentList,
+    required int tiltId,
+    required String deviceNo,
+    required int isPrintKot,
+  }) {
+    return """
+      DECLARE @OrderKey INT;
+      EXEC uspInsertDineInOrderAndriod_Sep
+          @TiltId = $tiltId,
+          @CounterId = 0,
+          @Waiter = '$_currentUser',
+          @TableNo = '',
+          @cover = 0,
+          @tab_unique_id = '$tabUniqueIdN',
+          @device_no = '$deviceNo',
+          @totalAmount = $_orderTotalAmount,
+          @qty2 = '$qtyList',
+          @proditemcode = '$productCodes',
+          @OrderDtlID = '$orderDtlIds',
+          @User = '$_currentUser',
+          @IsPrintKOT = $isPrintKot,
+          @OrderType = 'TAKE AWAY',
+          @Customer = '$_customerName',
+          @Tele = '$_phone',
+          @Comment = '$commentList',
+          @CustomerMasterid = '$_customerPosId',
+          @OrderKey = @OrderKey OUTPUT;
+      SELECT @OrderKey AS id;
+    """;
+  }
 
-      final query = """
-        DECLARE @Output INT;
-        EXEC spItemLessPunch 
-            @OrderDtlID = '$orderDetailId',
-            @TabUniqueID = '$tabUniqueId',
-            @qty = $quantity,
-            @Reason = '$reason',
-            @UserLogin = '$username',
-            @UserApproval = '$authenticateUsername',
-            @TiltId = '$tiltId',
-            @Output = @Output OUTPUT;
-        SELECT @Output AS id;
-      """;
-
-      debugPrint("📝 ItemLess Query: $query");
-      final result = await SqlConn.readData(query);
-      debugPrint("📤 ItemLess Result: $result");
-
-      final decoded = jsonDecode(result);
-      if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
-        id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
-      } else if (decoded is Map && decoded['id'] != null) {
-        id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
-      }
-
-      if (id > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Item reduced successfully, ID: $id')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to reduce item'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-
-      return id;
-    } catch (e) {
-      debugPrint("❌ Error in insertItemLess: $e");
+  Future<int?> _saveOrderToSqlServer() async {
+    if (_takeAwayCustomerInfoStatus != '0' && (_phone == null || _phone!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error reducing item: $e'),
+        const SnackBar(
+          content: Text('Error: MobileNo missing'),
           backgroundColor: Colors.red,
         ),
       );
-      return id;
+      return null;
+    }
+
+    if (_activeOrderItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items in the order')),
+      );
+      return null;
+    }
+
+    final validOrderItems = _activeOrderItems
+        .where((item) => item.itemId != '0' && item.itemId.isNotEmpty)
+        .toList();
+    if (validOrderItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No valid items to save')),
+      );
+      return null;
+    }
+
+    final connDetails = _takeAwaySettings ?? await DatabaseHelper.instance.getTakeAwaySettings();
+    final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
+
+    setState(() {
+      _currentUser = loggedUser ?? "Admin";
+    });
+
+    final tiltId = int.tryParse(connDetails?['tiltId']?.toString() ?? '33') ?? 33;
+    final deviceNo = connDetails?['deviceName']?.isNotEmpty ?? false
+        ? connDetails!['deviceName']
+        : 'Lenovo TB-X505F';
+    final isPrintKot = connDetails?['isPrintKot'] ?? 1;
+    final tabUniqueId = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty
+        ? widget.tabUniqueId!
+        : _tabUniqueId!;
+
+    if (tabUniqueId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid tab_unique_id'), backgroundColor: Colors.red),
+      );
+      return null;
+    }
+
+    final qtyList = validOrderItems.map((e) => e.quantity.toString()).join(',');
+    final productCodes = validOrderItems.map((e) => e.itemId).join(',');
+    final orderDtlIds = validOrderItems.map((e) => e.orderDetailId).join(',');
+    final commentList = validOrderItems.map((e) => e.comments).join(',');
+
+    final query = _buildOrderQuery(
+      tabUniqueIdN: tabUniqueId,
+      qtyList: qtyList,
+      productCodes: productCodes,
+      orderDtlIds: orderDtlIds,
+      commentList: commentList,
+      tiltId: tiltId,
+      deviceNo: deviceNo,
+      isPrintKot: isPrintKot,
+    );
+
+    try {
+      if (!_isMssqlReady) {
+        final conn = await DatabaseHelper.instance.getConnectionDetails();
+        if (conn == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Connection details missing'), backgroundColor: Colors.red),
+          );
+          return null;
+        }
+        _isMssqlReady = await _mssql.connect(
+          ip: conn['ip'] ?? '192.168.137.117',
+          port: conn['port'] ?? '1433',
+          databaseName: conn['dbName'] ?? 'HNFOODMULTAN',
+          username: conn['username'] ?? 'sa',
+          password: conn['password'] ?? '123321Pa',
+          timeoutInSeconds: 10,
+        );
+      }
+
+      final result = await _mssql.getData(query);
+      int? newOrderId;
+      try {
+        final decoded = jsonDecode(result);
+        if (decoded is List && decoded.isNotEmpty) {
+          newOrderId = int.tryParse(decoded[0]['id']?.toString() ?? '');
+        } else if (decoded is Map && decoded['id'] != null) {
+          newOrderId = int.tryParse(decoded['id']?.toString() ?? '');
+        }
+      } catch (e) {
+        final orderKeyQuery = "SELECT TOP 1 id FROM dine_in_order WHERE tab_unique_id = '$tabUniqueId'";
+        final orderKeyResult = await _mssql.getData(orderKeyQuery);
+        final orderKeyDecoded = jsonDecode(orderKeyResult);
+        if (orderKeyDecoded is List && orderKeyDecoded.isNotEmpty) {
+          newOrderId = int.tryParse(orderKeyDecoded[0]['id']?.toString() ?? '');
+        }
+      }
+
+      if (newOrderId != null && newOrderId > 0) {
+        setState(() {
+          _activeOrderItems.clear();
+          _orderTotalAmount = 0.0;
+          _totalTax = 0.0;
+          _totalDiscount = 0.0;
+        });
+        return newOrderId;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to retrieve order ID'), backgroundColor: Colors.red),
+        );
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ Error placing order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error placing order: $e'), backgroundColor: Colors.red),
+      );
+      return null;
     } finally {
       if (await SqlConn.isConnected) {
         await SqlConn.disconnect();
@@ -495,15 +939,100 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
     }
   }
 
+  Future<String?> _showCommentDialog(OrderItem item) async {
+    final defaultText = item.comments.isNotEmpty ? item.comments : 'Please prepare quickly!';
+    final TextEditingController _commentController = TextEditingController(text: defaultText);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: const Color(0xFF182022),
+          title: const Text(
+            'Add / Edit Comments',
+            style: TextStyle(color: Colors.white, fontFamily: 'Raleway'),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: TextField(
+              controller: _commentController,
+              maxLines: 4,
+              style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
+              decoration: InputDecoration(
+                hintText: 'Enter special instructions',
+                hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
+                filled: true,
+                fillColor: Colors.grey.shade800,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway'),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF75E5E2),
+                foregroundColor: const Color(0xFF0D1D20),
+              ),
+              onPressed: () {
+                final newComment = _commentController.text.trim();
+                if (item.itemId == '0' || item.itemId.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Cannot add comment for ${item.itemName}: Invalid item ID'),
+                    ),
+                  );
+                  Navigator.of(ctx).pop();
+                  return;
+                }
+                Navigator.of(ctx).pop(newComment.isNotEmpty ? newComment : 'Please prepare quickly!');
+              },
+              child: const Text('Save', style: TextStyle(fontFamily: 'Raleway')),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        final idx = _activeOrderItems.indexWhere((o) => o.itemId == item.itemId);
+        if (idx != -1) {
+          _activeOrderItems[idx] = OrderItem(
+            itemId: item.itemId,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            price: item.price,
+            orderDetailId: item.orderDetailId,
+            comments: result,
+          );
+        }
+        _calculateTotalBill();
+      });
+    }
+    return result;
+  }
+
   Future<void> _showReasonDialog(String itemId, String itemName, Function(int) onSuccess) async {
     final TextEditingController reasonController = TextEditingController();
-    String? selectedUsername;
-    List<String> usernames = await _fetchUsernames();
+    String? selectedWaiterName;
+    List<String> waiters = await _fetchWaiters();
 
-    if (usernames.isEmpty) {
+    if (waiters.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No users found for authentication'),
+          content: Text('No waiters found for authentication'),
           backgroundColor: Colors.red,
         ),
       );
@@ -540,9 +1069,9 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: selectedUsername,
+                value: selectedWaiterName,
                 decoration: InputDecoration(
-                  hintText: 'Select authenticate username',
+                  hintText: 'Select authenticate waiter',
                   hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
                   filled: true,
                   fillColor: Colors.grey.shade800,
@@ -552,14 +1081,14 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                 ),
                 dropdownColor: Colors.grey.shade800,
                 style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
-                items: usernames.map((username) {
+                items: waiters.map((waiter) {
                   return DropdownMenuItem<String>(
-                    value: username,
-                    child: Text(username),
+                    value: waiter,
+                    child: Text(waiter),
                   );
                 }).toList(),
                 onChanged: (value) {
-                  selectedUsername = value;
+                  selectedWaiterName = value;
                 },
               ),
             ],
@@ -579,10 +1108,10 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
               ),
               onPressed: () {
                 final reason = reasonController.text.trim();
-                if (reason.isEmpty || selectedUsername == null) {
+                if (reason.isEmpty || selectedWaiterName == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please provide reason and select a username'),
+                      content: Text('Please provide reason and select a waiter'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -607,66 +1136,17 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
       itemId: itemId,
       itemName: itemName,
       reason: reasonController.text.trim(),
-      authUsername: selectedUsername!,
+      authWaiterName: selectedWaiterName!,
       orderItem: orderItem,
       onSuccess: onSuccess,
     );
-  }
-
-  Future<List<String>> _fetchUsernames() async {
-    try {
-      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-      if (connDetails == null) {
-        debugPrint('⚠️ No connection details available');
-        return [];
-      }
-
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: connDetails['ip'] as String,
-          port: connDetails['port'] as String,
-          databaseName: connDetails['dbName'] as String,
-          username: connDetails['username'] as String,
-          password: connDetails['password'] as String,
-          timeout: 10,
-        );
-      }
-
-      final query = "SELECT username FROM tbl_user";
-      final result = await SqlConn.readData(query);
-      debugPrint("📝 Username Query: $query");
-      debugPrint("📤 Username Result: $result");
-
-      final decoded = jsonDecode(result) as List<dynamic>;
-      final usernames = decoded
-          .map((row) => row['username']?.toString())
-          .where((username) => username != null && username.isNotEmpty)
-          .cast<String>()
-          .toList();
-
-      return usernames;
-    } catch (e) {
-      debugPrint('❌ Error fetching usernames: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to fetch usernames: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return [];
-    } finally {
-      if (await SqlConn.isConnected) {
-        await SqlConn.disconnect();
-        debugPrint('🛑 SQL Server connection closed');
-      }
-    }
   }
 
   Future<void> _showAuthDialog({
     required String itemId,
     required String itemName,
     required String reason,
-    required String authUsername,
+    required String authWaiterName,
     required OrderItem orderItem,
     required Function(int) onSuccess,
   }) async {
@@ -756,16 +1236,6 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                       return;
                     }
 
-                    if (authUsername != loggedUser) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Username does not match logged-in user'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
                     try {
                       await SqlConn.connect(
                         ip: connDetails['ip'] as String,
@@ -776,7 +1246,8 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                         timeout: 10,
                       );
 
-                      final loginQuery = "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '$password'";
+                      // Check if waiter exists with the provided name
+                      final loginQuery = "SELECT waiter_name FROM Waiter WHERE waiter_name = '$authWaiterName'";
                       final loginResult = await SqlConn.readData(loginQuery);
 
                       if (jsonDecode(loginResult).isNotEmpty) {
@@ -785,7 +1256,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                           quantity: orderItem.quantity,
                           orderDetailId: orderItem.orderDetailId,
                           username: _currentUser,
-                          authenticateUsername: authUsername,
+                          authenticateUsername: authWaiterName,
                           reason: reason,
                           tiltId: (_finalTiltId ?? 33).toString(),
                         );
@@ -810,7 +1281,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Invalid password'),
+                            content: Text('Invalid waiter name'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -839,450 +1310,93 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
     );
   }
 
-  Future<String?> _showCommentDialog(OrderItem item) async {
-    final defaultText = item.comments.isNotEmpty ? item.comments : 'Please prepare quickly!';
-    final TextEditingController _commentController = TextEditingController(text: defaultText);
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Future<int> insertItemLess({
+    required String tabUniqueId,
+    required String orderDetailId,
+    required String username,
+    required String authenticateUsername,
+    required String reason,
+    required String tiltId,
+    required int quantity,
+  }) async {
+    int id = 0;
+    try {
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Database connection details not found'),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: const Color(0xFF182022),
-          title: const Text(
-            'Add / Edit Comments',
-            style: TextStyle(color: Colors.white, fontFamily: 'Raleway'),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: TextField(
-              controller: _commentController,
-              maxLines: 4,
-              style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
-              decoration: InputDecoration(
-                hintText: 'Enter special instructions',
-                hintStyle: const TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
-                filled: true,
-                fillColor: Colors.grey.shade800,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway'),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF75E5E2),
-                foregroundColor: const Color(0xFF0D1D20),
-              ),
-              onPressed: () {
-                final newComment = _commentController.text.trim();
-                if (item.itemId == '0' || item.itemId.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Cannot add comment for ${item.itemName}: Invalid item ID'),
-                    ),
-                  );
-                  Navigator.of(ctx).pop();
-                  return;
-                }
-                Navigator.of(ctx).pop(newComment.isNotEmpty ? newComment : 'Please prepare quickly!');
-              },
-              child: const Text('Save', style: TextStyle(fontFamily: 'Raleway')),
-            ),
-          ],
         );
-      },
-    );
+        return id;
+      }
 
-    if (result != null) {
-      setState(() {
-        final idx = _activeOrderItems.indexWhere((o) => o.itemId == item.itemId);
-        if (idx != -1) {
-          _activeOrderItems[idx] = OrderItem(
-            itemId: item.itemId,
-            itemName: item.itemName,
-            quantity: item.quantity,
-            price: item.price,
-            orderDetailId: item.orderDetailId,
-            comments: result,
-          );
-        }
-        _calculateTotalBill();
-      });
-    }
-    return result;
-  }
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] as String,
+          port: connDetails['port'] as String,
+          databaseName: connDetails['dbName'] as String,
+          username: connDetails['username'] as String,
+          password: connDetails['password'] as String,
+          timeout: 10,
+        );
+      }
 
-  void _addItemToOrder(Map<String, dynamic> item) {
-    final itemId = item['id']?.toString() ?? '0';
-    if (itemId == '0' || itemId.isEmpty) {
-      debugPrint("⚠️ Warning: Invalid item ID for ${item['item_name']}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cannot add ${item['item_name']}: Invalid item ID'),
-        ),
-      );
-      return;
-    }
+      final query = """
+        DECLARE @Output INT;
+        EXEC spItemLessPunch 
+            @OrderDtlID = '$orderDetailId',
+            @TabUniqueID = '$tabUniqueId',
+            @qty = $quantity,
+            @Reason = '$reason',
+            @UserLogin = '$username',
+            @UserApproval = '$authenticateUsername',
+            @TiltId = '$tiltId',
+            @Output = @Output OUTPUT;
+        SELECT @Output AS id;
+      """;
 
-    final isExistingOrder = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
+      debugPrint("📝 ItemLess Query: $query");
+      final result = await SqlConn.readData(query);
+      debugPrint("📤 ItemLess Result: $result");
 
-    setState(() {
-      if (isExistingOrder) {
-        // For existing orders, add as a new entry without merging
-        _activeOrderItems.add(
-          OrderItem(
-            itemId: itemId,
-            itemName: item['item_name'] ?? 'Unknown',
-            quantity: 1,
-            price: double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
-            orderDetailId: '0',
-            comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
-          ),
+      final decoded = jsonDecode(result);
+      if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
+        id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
+      } else if (decoded is Map && decoded['id'] != null) {
+        id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
+      }
+
+      if (id > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Item reduced successfully, ID: $id')),
         );
       } else {
-        // For new orders, merge if exists
-        final existingIndex = _activeOrderItems.indexWhere((e) => e.itemId == itemId);
-        if (existingIndex != -1) {
-          _activeOrderItems[existingIndex] = OrderItem(
-            itemId: _activeOrderItems[existingIndex].itemId,
-            itemName: _activeOrderItems[existingIndex].itemName,
-            quantity: _activeOrderItems[existingIndex].quantity + 1,
-            price: _activeOrderItems[existingIndex].price,
-            orderDetailId: _activeOrderItems[existingIndex].orderDetailId,
-            comments: _activeOrderItems[existingIndex].comments,
-          );
-        } else {
-          _activeOrderItems.add(
-            OrderItem(
-              itemId: itemId,
-              itemName: item['item_name'] ?? 'Unknown',
-              quantity: 1,
-              price: double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
-              orderDetailId: '0',
-              comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to reduce item'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      _calculateTotalBill();
-    });
-  }
 
-  void _decreaseItemQuantity(String itemId) {
-    final index = _activeOrderItems.indexWhere((o) => o.itemId == itemId);
-    if (index == -1) return;
-
-    final orderItem = _activeOrderItems[index];
-    if (widget.tabUniqueId == null || widget.tabUniqueId!.isEmpty) {
-      setState(() {
-        if (orderItem.quantity > 1) {
-          _activeOrderItems[index] = OrderItem(
-            itemId: orderItem.itemId,
-            itemName: orderItem.itemName,
-            quantity: orderItem.quantity - 1,
-            price: orderItem.price,
-            orderDetailId: orderItem.orderDetailId,
-            comments: orderItem.comments,
-          );
-        } else {
-          _activeOrderItems.removeAt(index);
-        }
-        _calculateTotalBill();
-      });
-    } else {
-      _showReasonDialog(itemId, orderItem.itemName, (int resultId) {
-        setState(() {
-          if (orderItem.quantity > 1) {
-            _activeOrderItems[index] = OrderItem(
-              itemId: orderItem.itemId,
-              itemName: orderItem.itemName,
-              quantity: orderItem.quantity - 1,
-              price: orderItem.price,
-              orderDetailId: orderItem.orderDetailId,
-              comments: orderItem.comments,
-            );
-          } else {
-            _activeOrderItems.removeAt(index);
-          }
-          _calculateTotalBill();
-        });
-      });
-    }
-  }
-
-  void _calculateTotalBill() {
-    double total = 0.0;
-    double tax = 0.0;
-    for (var item in _activeOrderItems) {
-      final subtotal = item.subtotal;
-      final taxAmount = item.tax;
-      total += subtotal + taxAmount;
-      tax += taxAmount;
-
-      debugPrint(
-        "🧾 Item: ${item.itemName}, Qty: ${item.quantity}, Price: ${item.price}, "
-        "Subtotal: $subtotal, Tax%: ${OrderConstants.taxRate * 100}, "
-        "Final: ${subtotal + taxAmount}",
-      );
-    }
-    setState(() {
-      _orderTotalAmount = total;
-      _totalTax = tax;
-      _totalDiscount = 0.0;
-    });
-    debugPrint('💰 Final Bill => Total: $_orderTotalAmount | Tax: $_totalTax | Discount: $_totalDiscount');
-  }
-
-  String _buildOrderQuery({
-    required String tabUniqueIdN,
-    required String qtyList,
-    required String productCodes,
-    required String orderDtlIds,
-    required String commentList,
-    required int tiltId,
-    required String deviceNo,
-    required int isPrintKot,
-  }) {
-    return """
-      DECLARE @OrderKey INT;
-      EXEC uspInsertDineInOrderAndriod_Sep
-          @TiltId = $tiltId,
-          @CounterId = 0,
-          @Waiter = '${widget.waiterName}',
-          @TableNo = '',
-          @cover = 0,
-          @tab_unique_id = '$tabUniqueIdN',
-          @device_no = '$deviceNo',
-          @totalAmount = $_orderTotalAmount,
-          @qty2 = '$qtyList',
-          @proditemcode = '$productCodes',
-          @OrderDtlID = '$orderDtlIds',
-          @User = '$_currentUser',
-          @IsPrintKOT = $isPrintKot,
-          @OrderType = 'TAKE AWAY',
-          @Customer = '$_customerName',
-          @Tele = '$_phone',
-          @Comment = '$commentList',
-          @OrderKey = @OrderKey OUTPUT;
-      SELECT @OrderKey AS id;
-    """;
-  }
-
-  Future<int?> _saveOrderToSqlServer() async {
-    if (!_customerDetailsCollected) {
+      return id;
+    } catch (e) {
+      debugPrint("❌ Error in insertItemLess: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Customer details not provided'),
+        SnackBar(
+          content: Text('Error reducing item: $e'),
           backgroundColor: Colors.red,
         ),
       );
-      return null;
-    }
-
-    if (_activeOrderItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items in the order')),
-      );
-      return null;
-    }
-
-    final validOrderItems = _activeOrderItems
-        .where((item) => item.itemId != '0' && item.itemId.isNotEmpty)
-        .toList();
-    if (validOrderItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No valid items to save')),
-      );
-      return null;
-    }
-
-    final connDetails = _takeAwaySettings ?? await DatabaseHelper.instance.getTakeAwaySettings();
-    final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
-
-    setState(() {
-      _currentUser = loggedUser ?? "Admin";
-    });
-
-    final tiltId = int.tryParse(connDetails?['tiltId']?.toString() ?? '33') ?? 33;
-    final deviceNo = connDetails?['deviceName']?.isNotEmpty ?? false
-        ? connDetails!['deviceName']
-        : 'Lenovo TB-X505F';
-    final isPrintKot = connDetails?['isPrintKot'] ?? 1;
-    final tabUniqueId = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty
-        ? widget.tabUniqueId!
-        : _tabUniqueId!;
-
-    if (tabUniqueId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid tab_unique_id'), backgroundColor: Colors.red),
-      );
-      return null;
-    }
-
-    final qtyList = validOrderItems.map((e) => e.quantity.toString()).join(',');
-    final productCodes = validOrderItems.map((e) => e.itemId).join(',');
-    final orderDtlIds = validOrderItems.map((e) => e.orderDetailId).join(',');
-    final commentList = validOrderItems.map((e) => e.comments).join(',');
-
-    final query = _buildOrderQuery(
-      tabUniqueIdN: tabUniqueId,
-      qtyList: qtyList,
-      productCodes: productCodes,
-      orderDtlIds: orderDtlIds,
-      commentList: commentList,
-      tiltId: tiltId,
-      deviceNo: deviceNo,
-      isPrintKot: isPrintKot,
-    );
-
-    debugPrint("===== FINAL QUERY =====\n$query");
-    debugPrint("📝 Qty List => $qtyList");
-    debugPrint("📝 Product Codes => $productCodes");
-    debugPrint("📝 Order Detail IDs => $orderDtlIds");
-    debugPrint("📝 Comments => $commentList");
-    debugPrint("📝 Customer Name => $_customerName");
-    debugPrint("📝 Phone => $_phone");
-    debugPrint("📝 CustomerPOSId => $_customerPosId");
-
-    try {
-      if (!_isMssqlReady) {
-        final conn = await DatabaseHelper.instance.getConnectionDetails();
-        if (conn == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Connection details missing'), backgroundColor: Colors.red),
-          );
-          return null;
-        }
-        _isMssqlReady = await _mssql.connect(
-          ip: conn['ip'] ?? '192.168.137.117',
-          port: conn['port'] ?? '1433',
-          databaseName: conn['dbName'] ?? 'HNFOODMULTAN',
-          username: conn['username'] ?? 'sa',
-          password: conn['password'] ?? '123321Pa',
-          timeoutInSeconds: 10,
-        );
-      }
-
-      final result = await _mssql.getData(query);
-      debugPrint("📤 Query Result: $result");
-
-      int? newOrderId;
-      try {
-        final decoded = jsonDecode(result);
-        if (decoded is List && decoded.isNotEmpty) {
-          newOrderId = int.tryParse(decoded[0]['id']?.toString() ?? '');
-        } else if (decoded is Map && decoded['id'] != null) {
-          newOrderId = int.tryParse(decoded['id']?.toString() ?? '');
-        }
-      } catch (e) {
-        debugPrint("⚠️ JSON decode failed, attempting fallback: $e");
-        final orderKeyQuery = "SELECT TOP 1 id FROM dine_in_order WHERE tab_unique_id = '$tabUniqueId'";
-        final orderKeyResult = await _mssql.getData(orderKeyQuery);
-        final orderKeyDecoded = jsonDecode(orderKeyResult);
-        if (orderKeyDecoded is List && orderKeyDecoded.isNotEmpty) {
-          newOrderId = int.tryParse(orderKeyDecoded[0]['id']?.toString() ?? '');
-        }
-      }
-
-      if (newOrderId != null && newOrderId > 0) {
-        setState(() {
-          _activeOrderItems.clear();
-          _orderTotalAmount = 0.0;
-          _totalTax = 0.0;
-          _totalDiscount = 0.0;
-        });
-        _showSuccessDialog(newOrderId);
-        return newOrderId;
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to retrieve order ID'), backgroundColor: Colors.red),
-        );
-        return null;
-      }
-    } catch (e) {
-      debugPrint('❌ Error placing order: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing order: $e'), backgroundColor: Colors.red),
-      );
-      return null;
+      return id;
     } finally {
       if (await SqlConn.isConnected) {
         await SqlConn.disconnect();
         debugPrint('🛑 SQL Server connection closed');
       }
     }
-  }
-
-  void _showSuccessDialog(int orderId) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: const Color(0xFF0D1D20),
-        title: Column(
-          children: const [
-            Icon(
-              Icons.check_circle_outline,
-              color: Color(0xFF75E5E2),
-              size: 60,
-            ),
-            SizedBox(height: 10),
-            Text(
-              "Success!",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Raleway',
-              ),
-            ),
-          ],
-        ),
-        content: const Text(
-          "Your Order Successfully Placed",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
-            fontFamily: 'Raleway',
-          ),
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF75E5E2),
-                foregroundColor: const Color(0xFF0D1D20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => BillScreen()),
-                );
-              },
-              child: const Text("View Bill", style: TextStyle(fontFamily: 'Raleway')),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildSummaryRow(String label, String value) {
@@ -1562,7 +1676,14 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
         ),
         const SizedBox(height: 16),
         ElevatedButton(
-          onPressed: _activeOrderItems.isEmpty ? null : () => _showCustomerDetailsDialog(),
+          onPressed: _activeOrderItems.isEmpty
+              ? null
+              : () async {
+                  final orderId = await _saveOrderToSqlServer();
+                  if (orderId != null) {
+                    _showSuccessDialog(orderId);
+                  }
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF75E5E2),
             foregroundColor: const Color(0xFF0D1D20),
@@ -1576,6 +1697,66 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
           child: const Text('Place Order'),
         ),
       ],
+    );
+  }
+
+  void _showSuccessDialog(int orderId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: const Color(0xFF0D1D20),
+        title: Column(
+          children: const [
+            Icon(
+              Icons.check_circle_outline,
+              color: Color(0xFF75E5E2),
+              size: 60,
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Success!",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Raleway',
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          "Your Order Successfully Placed",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+            fontFamily: 'Raleway',
+          ),
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF75E5E2),
+                foregroundColor: const Color(0xFF0D1D20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => BillScreen()),
+                );
+              },
+              child: const Text("View Bill", style: TextStyle(fontFamily: 'Raleway')),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1671,13 +1852,16 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                       : _buildMobileLayout();
                 },
               ),
-
-              // This is Order Dekho button 
-        // floatingActionButton: FloatingActionButton.extended(
-        //   onPressed: () => _showCustomerDetailsDialog(),
-        //   label: Text('Order Dekho (${_activeOrderItems.length})'),
-        //   icon: const Icon(Icons.shopping_cart),
-        // ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            final orderId = await _saveOrderToSqlServer();
+            if (orderId != null) {
+              _showSuccessDialog(orderId);
+            }
+          },
+          label: Text('Order Dekho (${_activeOrderItems.length})'),
+          icon: const Icon(Icons.shopping_cart),
+        ),
       ),
     );
   }
@@ -1976,97 +2160,5 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
         ),
       ],
     );
-  }
-
-  Future<void> _showCustomerDetailsDialog() async {
-    TextEditingController nameController = TextEditingController(text: _customerName);
-    TextEditingController phoneController = TextEditingController(text: _phone);
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: const Color(0xFF182022),
-        title: const Text(
-          'Customer Details',
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
-              decoration: const InputDecoration(
-                labelText: 'Customer Name',
-                labelStyle: TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF75E5E2)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: phoneController,
-              style: const TextStyle(color: Colors.white, fontFamily: 'Raleway'),
-              decoration: const InputDecoration(
-                labelText: 'Phone Number',
-                labelStyle: TextStyle(color: Colors.white54, fontFamily: 'Raleway'),
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF75E5E2)),
-                ),
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.redAccent, fontFamily: 'Raleway'),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF75E5E2),
-              foregroundColor: const Color(0xFF0D1D20),
-            ),
-            onPressed: () {
-              if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please fill all required fields'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(context, true);
-            },
-            child: const Text('OK', style: TextStyle(fontFamily: 'Raleway')),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) {
-      setState(() {
-        _customerName = nameController.text;
-        _phone = phoneController.text;
-        _customerDetailsCollected = true;
-      });
-      final orderId = await _saveOrderToSqlServer();
-      if (orderId != null) {
-        // Navigation handled in _showSuccessDialog
-      }
-    }
   }
 }

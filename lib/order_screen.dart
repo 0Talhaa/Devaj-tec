@@ -484,98 +484,99 @@ class _OrderScreenState extends State<OrderScreen>
     });
   }
 
-Future<int> insertItemLess({
-  required String tabUniqueId,
-  required String orderDetailId,
-  required String username,
-  required String authenticateUsername,
-  required String reason,
-  required String tiltId,
-  required int quantity,
-}) async {
-  int id = 0;
-  try {
-    // Ensure connection details are available
-    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-    if (connDetails == null) {
+  Future<int> insertItemLess({
+    required String tabUniqueId,
+    required String orderDetailId,
+    required String username,
+    required String authenticateUsername,
+    required String reason,
+    required String tiltId,
+    required int quantity,
+  }) async {
+    int id = 0;
+    try {
+      // Ensure connection details are available
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Database connection details not found'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return id;
+      }
+
+      // Connect to SQL Server
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] as String,
+          port: connDetails['port'] as String,
+          databaseName: connDetails['dbName'] as String,
+          username: connDetails['username'] as String,
+          password: connDetails['password'] as String,
+          timeout: 10,
+        );
+      }
+
+      // Updated query to handle @Output parameter
+      final query = """
+        DECLARE @Output INT;
+        EXEC spItemLessPunch 
+            @OrderDtlID = '$orderDetailId',
+            @TabUniqueID = '$tabUniqueId',
+            @qty = $quantity,
+            @Reason = '$reason',
+            @UserLogin = '$username',
+            @UserApproval = '$authenticateUsername',
+            @TiltId = '$tiltId',
+            @Output = @Output OUTPUT;
+        SELECT @Output AS id;
+      """;
+
+      debugPrint("📝 ItemLess Query: $query");
+      final result = await SqlConn.readData(query);
+      debugPrint("📤 ItemLess Result: $result");
+
+      // Parse the result
+      final decoded = jsonDecode(result);
+      if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
+        id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
+      } else if (decoded is Map && decoded['id'] != null) {
+        id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
+      }
+
+      if (id > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Item reduced successfully, ID: $id')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to reduce item'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+      return id;
+    } catch (e) {
+      debugPrint("❌ Error in insertItemLess: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Database connection details not found'),
+        SnackBar(
+          content: Text('Error reducing item: $e'),
           backgroundColor: Colors.red,
         ),
       );
       return id;
-    }
-
-    // Connect to SQL Server
-    if (!await SqlConn.isConnected) {
-      await SqlConn.connect(
-        ip: connDetails['ip'] as String,
-        port: connDetails['port'] as String,
-        databaseName: connDetails['dbName'] as String,
-        username: connDetails['username'] as String,
-        password: connDetails['password'] as String,
-        timeout: 10,
-      );
-    }
-
-    // Updated query to handle @Output parameter
-    final query = """
-      DECLARE @Output INT;
-      EXEC spItemLessPunch 
-          @OrderDtlID = '$orderDetailId',
-          @TabUniqueID = '$tabUniqueId',
-          @qty = $quantity,
-          @Reason = '$reason',
-          @UserLogin = '$username',
-          @UserApproval = '$authenticateUsername',
-          @TiltId = '$tiltId',
-          @Output = @Output OUTPUT;
-      SELECT @Output AS id;
-    """;
-
-    debugPrint("📝 ItemLess Query: $query");
-    final result = await SqlConn.readData(query);
-    debugPrint("📤 ItemLess Result: $result");
-
-    // Parse the result
-    final decoded = jsonDecode(result);
-    if (decoded is List && decoded.isNotEmpty && decoded[0]['id'] != null) {
-      id = int.tryParse(decoded[0]['id']?.toString() ?? '0') ?? 0;
-    } else if (decoded is Map && decoded['id'] != null) {
-      id = int.tryParse(decoded['id']?.toString() ?? '0') ?? 0;
-    }
-
-    if (id > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Item reduced successfully, ID: $id')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to reduce item'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-
-    return id;
-  } catch (e) {
-    debugPrint("❌ Error in insertItemLess: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error reducing item: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return id;
-  } finally {
-    if (await SqlConn.isConnected) {
-      await SqlConn.disconnect();
-      debugPrint('🛑 SQL Server connection closed');
+    } finally {
+      if (await SqlConn.isConnected) {
+        await SqlConn.disconnect();
+        debugPrint('🛑 SQL Server connection closed');
+      }
     }
   }
-}
+
   // Helper method to fetch usernames from tbl_user
   Future<List<String>> _fetchUsernames() async {
     try {
@@ -626,14 +627,79 @@ Future<int> insertItemLess({
     }
   }
 
+  // Helper method to fetch reasons from Reasons table
+  Future<List<Map<String, dynamic>>> _fetchReasons() async {
+    try {
+      final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+      if (connDetails == null) {
+        debugPrint('⚠️ No connection details available for reasons');
+        return [];
+      }
+
+      if (!await SqlConn.isConnected) {
+        await SqlConn.connect(
+          ip: connDetails['ip'] as String,
+          port: connDetails['port'] as String,
+          databaseName: connDetails['dbName'] as String,
+          username: connDetails['username'] as String,
+          password: connDetails['password'] as String,
+          timeout: 10,
+        );
+      }
+
+      final query = "SELECT id, Reason FROM Reasons";
+      final result = await SqlConn.readData(query);
+      debugPrint("📝 Reasons Query: $query");
+      debugPrint("📤 Reasons Result: $result");
+
+      final decoded = jsonDecode(result) as List<dynamic>;
+      final reasons = decoded
+          .map((row) => {
+                'id': row['id']?.toString(),
+                'Reason': row['Reason']?.toString(),
+              })
+          .where((reason) =>
+              reason['id']?.isNotEmpty == true &&
+              reason['Reason']?.isNotEmpty == true)
+          .toList();
+
+      return reasons;
+    } catch (e) {
+      debugPrint('❌ Error fetching reasons: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to fetch reasons: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return [];
+    } finally {
+      if (await SqlConn.isConnected) {
+        await SqlConn.disconnect();
+        debugPrint('🛑 SQL Server connection closed');
+      }
+    }
+  }
+
   Future<void> _showReasonDialog(
     String itemId,
     String itemName,
     Function(int) onSuccess,
   ) async {
-    final TextEditingController reasonController = TextEditingController();
+    String? selectedReason; // Track selected reason
     String? selectedUsername; // Track selected username
+    List<Map<String, dynamic>> reasons = await _fetchReasons(); // Fetch reasons
     List<String> usernames = await _fetchUsernames(); // Fetch usernames
+
+    if (reasons.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No reasons found in the database'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     if (usernames.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -660,11 +726,10 @@ Future<int> insertItemLess({
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: reasonController,
-                style: const TextStyle(color: Colors.white),
+              DropdownButtonFormField<String>(
+                value: selectedReason,
                 decoration: InputDecoration(
-                  hintText: 'Enter reason for reduction',
+                  hintText: 'Select reason for reduction',
                   hintStyle: const TextStyle(color: Colors.white54),
                   filled: true,
                   fillColor: Colors.grey.shade800,
@@ -672,6 +737,17 @@ Future<int> insertItemLess({
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+                dropdownColor: Colors.grey.shade800,
+                style: const TextStyle(color: Colors.white),
+                items: reasons.map((reason) {
+                  return DropdownMenuItem<String>(
+                    value: reason['Reason'],
+                    child: Text(reason['Reason']),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedReason = value;
+                },
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -713,12 +789,11 @@ Future<int> insertItemLess({
                 foregroundColor: const Color(0xFF0D1D20),
               ),
               onPressed: () {
-                final reason = reasonController.text.trim();
-                if (reason.isEmpty || selectedUsername == null) {
+                if (selectedReason == null || selectedUsername == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Please provide reason and select a username',
+                        'Please select a reason and a username',
                       ),
                       backgroundColor: Colors.red,
                     ),
@@ -744,192 +819,192 @@ Future<int> insertItemLess({
     await _showAuthDialog(
       itemId: itemId,
       itemName: itemName,
-      reason: reasonController.text.trim(),
+      reason: selectedReason!,
       authUsername: selectedUsername!,
       orderItem: orderItem,
       onSuccess: onSuccess,
     );
   }
 
- Future<void> _showAuthDialog({
-  required String itemId,
-  required String itemName,
-  required String reason,
-  required String authUsername,
-  required OrderItem orderItem,
-  required Function(int) onSuccess,
-}) async {
-  final TextEditingController passwordController = TextEditingController();
-  bool obscurePassword = true;
+  Future<void> _showAuthDialog({
+    required String itemId,
+    required String itemName,
+    required String reason,
+    required String authUsername,
+    required OrderItem orderItem,
+    required Function(int) onSuccess,
+  }) async {
+    final TextEditingController passwordController = TextEditingController();
+    bool obscurePassword = true;
 
-  await showDialog(
-    context: context,
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            backgroundColor: const Color(0xFF182022),
-            title: Text(
-              'Authenticate for $itemName',
-              style: const TextStyle(color: Colors.white),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Enter password',
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.grey.shade800,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.white54,
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: const Color(0xFF182022),
+              title: Text(
+                'Authenticate for $itemName',
+                style: const TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: passwordController,
+                    obscureText: obscurePassword,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Enter password',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.grey.shade800,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          obscurePassword = !obscurePassword;
-                        });
-                      },
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.white54,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
+                ],
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF75E5E2),
-                  foregroundColor: const Color(0xFF0D1D20),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                 ),
-                onPressed: () async {
-                  final password = passwordController.text.trim();
-                  if (password.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a password'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF75E5E2),
+                    foregroundColor: const Color(0xFF0D1D20),
+                  ),
+                  onPressed: () async {
+                    final password = passwordController.text.trim();
+                    if (password.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a password'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
 
-                  // Verify credentials
-                  final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-                  final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
+                    // Verify credentials
+                    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+                    final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
 
-                  if (connDetails == null || loggedUser == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('User not logged in or connection details missing'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    Navigator.of(ctx).pop();
-                    return;
-                  }
+                    if (connDetails == null || loggedUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('User not logged in or connection details missing'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      Navigator.of(ctx).pop();
+                      return;
+                    }
 
-                  // Check if entered username matches logged-in user
-                  if (authUsername != loggedUser) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Username does not match logged-in user'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                    // Check if entered username matches logged-in user
+                    if (authUsername != loggedUser) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Username does not match logged-in user'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
 
-                  // Connect to SQL Server and verify credentials
-                  try {
-                    await SqlConn.connect(
-                      ip: connDetails['ip'] as String,
-                      port: connDetails['port'] as String,
-                      databaseName: connDetails['dbName'] as String,
-                      username: connDetails['username'] as String,
-                      password: connDetails['password'] as String,
-                      timeout: 10,
-                    );
-
-                    final loginQuery =
-                        "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '$password'";
-                    final loginResult = await SqlConn.readData(loginQuery);
-
-                    if (jsonDecode(loginResult).isNotEmpty) {
-                      // Authentication successful, call insertItemLess
-                      final result = await insertItemLess(
-                        tabUniqueId: _tabUniqueId ?? '',
-                        quantity: orderItem.quantity,
-                        orderDetailId: orderItem.orderDetailId,
-                        username: _currentUser,
-                        authenticateUsername: authUsername,
-                        reason: reason,
-                        tiltId: (_finalTiltId ?? 0).toString(),
+                    // Connect to SQL Server and verify credentials
+                    try {
+                      await SqlConn.connect(
+                        ip: connDetails['ip'] as String,
+                        port: connDetails['port'] as String,
+                        databaseName: connDetails['dbName'] as String,
+                        username: connDetails['username'] as String,
+                        password: connDetails['password'] as String,
+                        timeout: 10,
                       );
 
-                      if (result > 0) {
-                        onSuccess(result);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Item reduced successfully, ID: $result'),
-                            backgroundColor: Colors.green,
-                          ),
+                      final loginQuery =
+                          "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '$password'";
+                      final loginResult = await SqlConn.readData(loginQuery);
+
+                      if (jsonDecode(loginResult).isNotEmpty) {
+                        // Authentication successful, call insertItemLess
+                        final result = await insertItemLess(
+                          tabUniqueId: _tabUniqueId ?? '',
+                          quantity: orderItem.quantity,
+                          orderDetailId: orderItem.orderDetailId,
+                          username: _currentUser,
+                          authenticateUsername: authUsername,
+                          reason: reason,
+                          tiltId: (_finalTiltId ?? 0).toString(),
                         );
+
+                        if (result > 0) {
+                          onSuccess(result);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Item reduced successfully, ID: $result'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to reduce item'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        Navigator.of(ctx).pop();
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Failed to reduce item'),
+                            content: Text('Invalid password'),
                             backgroundColor: Colors.red,
                           ),
                         );
                       }
-                      Navigator.of(ctx).pop();
-                    } else {
+                    } catch (e) {
+                      debugPrint('❌ Error during authentication: $e');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Invalid password'),
+                        SnackBar(
+                          content: Text('Authentication failed: $e'),
                           backgroundColor: Colors.red,
                         ),
                       );
+                    } finally {
+                      await SqlConn.disconnect();
                     }
-                  } catch (e) {
-                    debugPrint('❌ Error during authentication: $e');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Authentication failed: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  } finally {
-                    await SqlConn.disconnect();
-                  }
-                },
-                child: const Text('Authenticate'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
+                  },
+                  child: const Text('Authenticate'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   Future<void> _showCommentDialog(OrderItem item) async {
     final defaultText = item.comments.isNotEmpty

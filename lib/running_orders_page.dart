@@ -74,16 +74,20 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
       const query = "EXEC uspGetOrderList";
       final result = await SqlConn.readData(query);
 
-      final decoded = jsonDecode(result) as List<dynamic>;
-      setState(() {
-        _orders = decoded.cast<Map<String, dynamic>>();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = "❌ Error fetching orders: $e";
-        _loading = false;
-      });
+final decoded = jsonDecode(result) as List<dynamic>;
+  // De-duplicate by tab_unique_id (or order_no, whichever is unique)
+  final uniqueOrders = <String, Map<String, dynamic>>{};
+  for (var order in decoded) {
+    final uniqueKey = order['tab_unique_id']?.toString() ?? '';
+    if (!uniqueOrders.containsKey(uniqueKey)) {
+      uniqueOrders[uniqueKey] = order.cast<String, dynamic>();
+    }
+  }
+
+  setState(() {
+    _orders = uniqueOrders.values.toList();
+    _loading = false;
+  });
     } finally {
       await SqlConn.disconnect();
     }
@@ -164,264 +168,274 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Running Orders"),
-        backgroundColor: const Color(0xFF0D1D20),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF75E5E2)),
-            onPressed: _fetchOrders,
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0D1D20), Color(0xFF1D3538)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text("Running Orders"),
+      backgroundColor: const Color(0xFF0D1D20),
+      centerTitle: true,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Color(0xFF75E5E2)),
+          onPressed: _fetchOrders,
         ),
-        child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF75E5E2)),
-              )
-            : _error != null
-            ? Center(
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              )
-            : _orders.isEmpty
-            ? const Center(
-                child: Text(
-                  "No running orders found.",
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              )
-            : Column(
-                children: [
-                  // Header Row
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                      horizontal: 10,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF41938F),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      children: const [
-                        Expanded(
-                          flex: 2,
-                          child: Text("OrderNo", style: _headerStyle),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text("OrderType", style: _headerStyle),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text("TableNo", style: _headerStyle),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text("Covers", style: _headerStyle),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text("OrderTime", style: _headerStyle),
-                        ),
-                        Expanded(
-                          flex: 4, // Increased flex to accommodate new button
-                          child: Text(
-                            "Action",
-                            style: _headerStyle,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
+      ],
+    ),
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D1D20), Color(0xFF1D3538)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF75E5E2)),
+            )
+          : _error != null
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 16),
                   ),
-
-                  // Data Rows
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _orders.length,
-                      itemBuilder: (context, index) {
-                        final order = _orders[index];
-                        final isEven = index % 2 == 0;
-
-                        return Container(
+                )
+              : _orders.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No running orders found.",
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // Header Row
+                        Container(
                           padding: const EdgeInsets.symmetric(
                             vertical: 14,
                             horizontal: 10,
                           ),
-                          decoration: BoxDecoration(
-                            color: isEven
-                                ? const Color(0xFF162A2D)
-                                : const Color(0xFF1F3C40),
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey.shade800,
-                                width: 0.5,
-                              ),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF41938F),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              topRight: Radius.circular(12),
                             ),
                           ),
                           child: Row(
-                            children: [
+                            children: const [
                               Expanded(
                                 flex: 2,
-                                child: Text(
-                                  order["order_no"]?.toString() ?? "-",
-                                  style: _rowStyle,
-                                ),
+                                child: Text("OrderNo", style: _headerStyle),
                               ),
                               Expanded(
                                 flex: 2,
-                                child: Text(
-                                  order["order_type"] ?? "-",
-                                  style: _rowStyle,
-                                ),
+                                child: Text("OrderType", style: _headerStyle),
                               ),
                               Expanded(
                                 flex: 2,
-                                child: Text(
-                                  order["table_no"] ?? "-",
-                                  style: _rowStyle,
-                                ),
+                                child: Text("TableNo", style: _headerStyle),
                               ),
                               Expanded(
                                 flex: 1,
-                                child: Text(
-                                  order["cover"]?.toString() ?? "-",
-                                  style: _rowStyle,
-                                ),
+                                child: Text("Covers", style: _headerStyle),
                               ),
                               Expanded(
                                 flex: 2,
-                                child: Text(
-                                  order["order_time"] ?? "-",
-                                  style: _rowStyle,
-                                ),
+                                child: Text("OrderTime", style: _headerStyle),
                               ),
-
                               Expanded(
-                                flex:
-                                    4, // Increased flex to accommodate new button
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // New Edit Button
-                                    ElevatedButton.icon(
-                                      onPressed: () =>
-                                          _navigateToEditScreen(order),
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
-                                      label: const Text(
-                                        "EDIT",
-                                        style: _buttonTextStyle,
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFFD66022,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 12,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 8),
-
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        final dynamic orderNo =
-                                            order['order_no'];
-                                        final String orderNoString = orderNo
-                                            .toString();
-
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => CashBillScreen(
-                                              orderNo: orderNoString,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        "CASH",
-                                        style: _buttonTextStyle,
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 8),
-
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        // TODO: implement CREDIT action
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        "CREDIT",
-                                        style: _buttonTextStyle,
-                                      ),
-                                    ),
-                                  ],
+                                flex: 4,
+                                child: Text(
+                                  "Action",
+                                  style: _headerStyle,
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
+                        ),
+
+                        // Data Rows
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _orders.length,
+                            itemBuilder: (context, index) {
+                              final order = _orders[index];
+                              final isEven = index % 2 == 0;
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                  horizontal: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isEven
+                                      ? const Color(0xFF162A2D)
+                                      : const Color(0xFF1F3C40),
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Colors.grey.shade800,
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        order["order_no"]?.toString() ?? "-",
+                                        style: _rowStyle,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        order["order_type"] ?? "-",
+                                        style: _rowStyle,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        order["table_no"] ?? "-",
+                                        style: _rowStyle,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        order["cover"]?.toString() ?? "-",
+                                        style: _rowStyle,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        order["order_time"] ?? "-",
+                                        style: _rowStyle,
+                                      ),
+                                    ),
+
+                                    Expanded(
+                                      flex: 4,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          // 🔸 Edit Button
+                                          ElevatedButton.icon(
+                                            onPressed: () =>
+                                                _navigateToEditScreen(order),
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              size: 18,
+                                              color: Colors.white,
+                                            ),
+                                            label: const Text(
+                                              "EDIT",
+                                              style: _buttonTextStyle,
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  const Color(0xFFD66022),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 12,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          ),
+
+                                          const SizedBox(width: 8),
+
+                                          // 💵 CASH Button
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              final dynamic orderNo =
+                                                  order['order_no'];
+                                              final String orderNoString =
+                                                  orderNo.toString();
+
+                                              // ✅ Yeh line fix ki gayi hai:
+                                              final String tabUniqueIdString =
+                                                  order['tab_unique_id']
+                                                          ?.toString() ??
+                                                      '';
+
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      CashBillScreen(
+                                                    orderNo: orderNoString,
+                                                    tabUniqueId:
+                                                        tabUniqueIdString,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 14,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              "CASH",
+                                              style: _buttonTextStyle,
+                                            ),
+                                          ),
+
+                                          const SizedBox(width: 8),
+
+                                          // 💳 CREDIT Button
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              // TODO: implement CREDIT action
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.blue,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 14,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              "CREDIT",
+                                              style: _buttonTextStyle,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // Styles
