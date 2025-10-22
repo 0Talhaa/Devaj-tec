@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mssql_connection/mssql_connection.dart';
+import 'package:start_app/cash_bill_screen.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/bill_screen.dart';
@@ -1492,7 +1493,10 @@ class _OrderScreenState extends State<OrderScreen>
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => BillScreen()),
+                  MaterialPageRoute(builder: (_) => CashBillScreen(orderNo: orderId.toString(),
+                                                    tabUniqueId: _tabUniqueId ?? '',)),
+                                                    // CashBillScreen(orderNo: orderId.toString(),
+                                                    // tabUniqueId: _tabUniqueId ?? '',)),
                 );
               },
               child: const Text("View Bill"),

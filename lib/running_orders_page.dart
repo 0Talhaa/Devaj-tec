@@ -212,8 +212,8 @@ Widget build(BuildContext context) {
                         // Header Row
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 10,
+                            vertical: 10,
+                            horizontal: 8,
                           ),
                           decoration: const BoxDecoration(
                             color: Color(0xFF41938F),
@@ -266,8 +266,8 @@ Widget build(BuildContext context) {
 
                               return Container(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                  horizontal: 10,
+                                  vertical: 12,
+                                  horizontal: 7,
                                 ),
                                 decoration: BoxDecoration(
                                   color: isEven
@@ -374,9 +374,9 @@ Widget build(BuildContext context) {
                                                   builder: (context) =>
                                                       CashBillScreen(
                                                     orderNo: orderNoString,
-                                                    tabUniqueId:
-                                                        tabUniqueIdString,
+                                                    tabUniqueId: tabUniqueIdString,
                                                   ),
+
                                                 ),
                                               );
                                             },

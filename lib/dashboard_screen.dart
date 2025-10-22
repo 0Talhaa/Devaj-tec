@@ -140,12 +140,12 @@ class DashboardScreen extends StatelessWidget {
                     color: kInputBgColor,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        spreadRadius: 5,
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
+                      // BoxShadow(
+                      //   color: Colors.black.withOpacity(0.2),
+                      //   spreadRadius: 5,
+                      //   blurRadius: 15,
+                      //   offset: const Offset(0, 8),
+                      // ),
                     ],
                   ),
                   child: SingleChildScrollView(

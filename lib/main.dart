@@ -1,18 +1,19 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:convert';
-import 'dart:io'; // Added for proper platform detection
+import 'dart:io'; 
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:start_app/login_screen.dart';
-import 'package:start_app/onboarding_screen.dart'; // Removed unused_import ignore as it's actually used
-import 'package:start_app/database_halper.dart'; // Fixed typo in filename
+import 'package:start_app/onboarding_screen.dart'; 
+import 'package:start_app/database_halper.dart'; 
 
-// Color and Constant definitions
-// If you have a 'constants.dart' file, import it instead.
+
+
+// This is Theme set
 const Color kPrimaryColor = Color(0xFF75E5E2); // Light Cyan
 const Color kSecondaryColor = Color(0xFF41938F); // Teal Green
 const Color kTertiaryColor = Color(0xFF0D1D20); // Very Dark Teal
@@ -30,34 +31,28 @@ const MaterialColor kPrimarySwatch = MaterialColor(0xFF41938F, <int, Color>{
   900: Color(0xFF0D1D20),
 });
 
-// -----------------------------------------------------------------------------
-// MAIN FUNCTION
-// -----------------------------------------------------------------------------
+
+
+
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized(); // Uncommented: Needed for plugins like device_info_plus
-  runApp(const MyApp());
-}
 
-// -----------------------------------------------------------------------------
-// ROOT WIDGET
-// -----------------------------------------------------------------------------
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const MyApp());}
 
+
+class MyApp extends StatelessWidget {const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SQL Server Connection App',
+      title: 'DEVAJ TEC',
       debugShowCheckedModeBanner: false,
       theme: _buildAppTheme(),
       home: const StartupScreen(), // First screen
     );
   }
 
-  // ThemeData defined in a separate method for clarity
+
   ThemeData _buildAppTheme() {
     return ThemeData(
       primarySwatch: kPrimarySwatch,
@@ -65,25 +60,22 @@ class MyApp extends StatelessWidget {
       scaffoldBackgroundColor: kTertiaryColor, // Dark background
       fontFamily: 'Raleway',
       appBarTheme: const AppBarTheme(
-        backgroundColor: kTertiaryColor,
-        elevation: 0,
+        backgroundColor: kTertiaryColor,elevation: 0,
         titleTextStyle: TextStyle(
-          color: kPrimaryColor,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          fontFamily: 'Raleway',
-        ),
+          color: kPrimaryColor,fontSize: 20,fontWeight: FontWeight.w600,fontFamily: 'Raleway',),
         iconTheme: IconThemeData(color: kPrimaryColor),
       ),
+
+
+
+
       // ElevatedButton Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: kPrimaryColor, // Primary color for the button
           foregroundColor: kTertiaryColor, // Tertiary color for the text
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(  borderRadius: BorderRadius.circular(12),),
           textStyle: const TextStyle(
             fontSize: 18,
             fontFamily: 'Raleway',

@@ -36,15 +36,15 @@ flutter:
 
   uses-material-design: true
 
-  assets:
-    - assets/devaj_logo2.png   # ✅ only once
+  assets:  
+    - assets/devaj-logo3.jpg
     - assets/devaj_logo.png
 # ✅ App Icon Configuration
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/devaj_logo2.png"
+  image_path: "assets/devaj-logo3.jpg"
   adaptive_icon_background: "#ffffff"   # ✅ use color OR a different background image
-  adaptive_icon_foreground: "assets/devaj_logo.png"
+  adaptive_icon_foreground: "assets/devaj-logo3.jpg"
   remove_alpha_ios: true
   

@@ -786,7 +786,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
       EXEC uspInsertDineInOrderAndriod_Sep
           @TiltId = $tiltId,
           @CounterId = 0,
-          @Waiter = '$_currentUser',
+          @Waiter = '${_currentUser.replaceAll(r'\/', '/').replaceAll('\\', '\\\\')}',
           @TableNo = '',
           @cover = 0,
           @tab_unique_id = '$tabUniqueIdN',
