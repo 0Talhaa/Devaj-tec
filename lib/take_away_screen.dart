@@ -1,10 +1,11 @@
-// ignore_for_file: unused_local_variable, unused_element, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, unused_field
+// ignore_for_file: unused_local_variable, unused_element, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, unused_field, dead_code
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mssql_connection/mssql_connection.dart';
 import 'package:sql_conn/sql_conn.dart';
+import 'package:start_app/custom_loader.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/bill_screen.dart';
 import 'package:intl/intl.dart';
@@ -124,42 +125,105 @@ class WaiterSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        primaryColor: const Color(0xFF75E5E2),
-        scaffoldBackgroundColor: const Color(0xFF0D1D20),
-        textTheme: const TextTheme(
-          titleLarge: TextStyle(fontFamily: 'Raleway', fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-          bodyMedium: TextStyle(fontFamily: 'Raleway', fontSize: 16, color: Colors.white),
+    // Responsive grid
+    final crossAxisCount = MediaQuery.of(context).size.width > 600 ? 4 : 2;
+    final childAspectRatio = MediaQuery.of(context).size.width > 600 ? 1.1 : 0.9;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Select Waiter',
+          style: TextStyle(
+            fontFamily: 'Raleway',
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
-        listTileTheme: ListTileThemeData(
-          tileColor: Colors.grey.shade900,
-          selectedTileColor: const Color(0xFF75E5E2),
-          textColor: Colors.white,
-          iconColor: const Color(0xFF75E5E2),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0D1D20),
-          foregroundColor: Colors.white,
-          elevation: 4,
-          titleTextStyle: TextStyle(fontFamily: 'Raleway', fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: kPrimaryColor,
       ),
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Select Waiter')),
-        body: ListView.builder(
-          itemCount: waiters.length,
-          itemBuilder: (context, index) {
-            final waiter = waiters[index];
-            return ListTile(
-              title: Text(waiter),
-              onTap: () {
-                onWaiterSelected(waiter);
-                Navigator.pop(context);
-              },
-            );
-          },
-        ),
+      body: Container(
+        color: kTertiaryColor,
+        child: waiters.isEmpty
+            ? Center(
+                child: Text(
+                  'Koi Waiter Nahi Mila.',
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: kPrimaryColor,
+                    fontFamily: 'Raleway',
+                  ),
+                  textAlign: TextAlign.center,
+                  semanticsLabel: 'No waiters found',
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 16.0,
+                    mainAxisSpacing: 16.0,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  itemCount: waiters.length,
+                  itemBuilder: (context, index) {
+                    final waiterName = waiters[index];
+                    // No per-waiter metadata available here, so use default styling.
+                    final isUpdated = true;
+
+                    return InkWell(
+                      onTap: () {
+                        onWaiterSelected(waiterName);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: isUpdated
+                              ? const LinearGradient(
+                                  colors: [kPrimaryColor, kSecondaryColor],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : const LinearGradient(
+                                  colors: [Color(0xFF1F2F32), kTertiaryColor],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          boxShadow: isUpdated
+                              ? [
+                                  BoxShadow(
+                                    color: kPrimaryColor.withOpacity(0.4),
+                                    spreadRadius: 2,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              waiterName,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Raleway',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
       ),
     );
   }

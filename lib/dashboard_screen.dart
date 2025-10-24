@@ -20,35 +20,51 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('DASHBOARD'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: kPrimaryColor, // Consistent with main.dart
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              // Clear logged-in user and navigate to LoginScreen
-              await DatabaseHelper.instance.clearLoggedInUser();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LoginScreen(
-                      tiltId: tiltId,
-                      tiltName: tiltName,
-                    ),
-                  ),
-                  (route) => false,
-                );
-              }
-            },
-            tooltip: 'Logout',
-          ),
-        ],
+appBar: AppBar(
+  backgroundColor: Colors.transparent,
+  elevation: 0,
+  foregroundColor: kPrimaryColor,
+
+  // Disable default title alignment
+  automaticallyImplyLeading: false,
+
+  title: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      // 👈 Left side: Logout button
+      IconButton(
+        icon: const Icon(Icons.logout),
+        tooltip: 'Logout',
+        onPressed: () async {
+          await DatabaseHelper.instance.clearLoggedInUser();
+          if (context.mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LoginScreen(
+                  tiltId: tiltId,
+                  tiltName: tiltName,
+                ),
+              ),
+              (route) => false,
+            );
+          }
+        },
       ),
+
+      // 👉 Right side: Dashboard text
+      const Text(
+        'DASHBOARD',
+        style: TextStyle(
+          fontFamily: 'Raleway',
+          fontWeight: FontWeight.bold,
+          fontSize: 24,
+        ),
+      ),
+    ],
+  ),
+),
+
       extendBodyBehindAppBar: true,
       body: Container(
         decoration: const BoxDecoration(

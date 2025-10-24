@@ -445,142 +445,160 @@ class _CashBillScreenState extends State<CashBillScreen> {
     );
   }
 
-  Widget _buildBillScreen() {
-    final orderNo = _safeString(orderDetails, 'OrderNo');
-    final tableNo = _safeString(orderDetails, 'TableNo');
-    final covers = _safeString(orderDetails, 'Covers');
-    final waiterName = _safeString(orderDetails, 'waiter_name');
-    final orderType = _safeString(orderDetails, 'OrderType');
-    final orderTime = _safeString(orderDetails, 'OrderTime');
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
+Widget _buildBillScreen() {
+  final orderNo = _safeString(orderDetails, 'OrderNo');
+  final tableNo = _safeString(orderDetails, 'TableNo');
+  final covers = _safeString(orderDetails, 'Covers');
+  final waiterName = _safeString(orderDetails, 'waiter_name');
+  final orderType = _safeString(orderDetails, 'OrderType');
+  final orderTime = _safeString(orderDetails, 'OrderTime');
+  final grandTotal = _safeNum(orderDetails, 'TotalAmount');
 
-    return Scaffold(
+  return Scaffold(
+    backgroundColor: kTertiaryColor,
+    appBar: AppBar(
+      title: const Text(
+        'Cash Bill',
+        style: TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.w600),
+      ),
       backgroundColor: kTertiaryColor,
-      appBar: AppBar(
-        title: const Text(
-          'Cash Bill',
-          style: TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: kTertiaryColor,
-        foregroundColor: kPrimaryColor,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-          tooltip: 'Back',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print, color: Colors.white),
-            onPressed: _printBill,
-            tooltip: 'Quick Print',
-          ),
-        ],
+      foregroundColor: kPrimaryColor,
+      elevation: 1,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+        tooltip: 'Back',
       ),
-   body: SafeArea(
-  child: Center( // ✅ Added Center
-    child: SingleChildScrollView(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: Card(
-          elevation: 8,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: ListView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 20),
-                _buildDetailsRow('Order No.', orderNo),
-                _buildDetailsRow('Table/Covers', '$tableNo / $covers'),
-                _buildDetailsRow('Waiter', waiterName),
-                _buildDetailsRow('Order Type', orderType),
-                _buildDetailsRow('Time', orderTime),
-                const Divider(height: 30, thickness: 1, color: Colors.grey),
-                _buildItemsTable(),
-                const Divider(height: 30, thickness: 2, color: Colors.black54),
-                _buildTaxAndTotalSection(),
-                const SizedBox(height: 20),
-                const Text(
-                  'Thank You for Your Visit!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                    fontFamily: 'Raleway',
-                  ),
-                ),
-              ],
-            ),
-          ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.print, color: Colors.white),
+          onPressed: _printBill,
+          tooltip: 'Quick Print',
         ),
-      ),
+      ],
     ),
-  ),
-),
 
-
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    body: SafeArea(
+      child: Container(
+        width: double.infinity, // ✅ Full width
+        height: double.infinity, // ✅ Full height
+        padding: const EdgeInsets.all(12),
+        child: Column(
           children: [
+            // ✅ Scrollable content area
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _printBill,
-                icon: const Icon(Icons.print),
-                label: const Text('Print Bill'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryColor,
-                  foregroundColor: kTertiaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  textStyle: const TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold, 
-                    fontFamily: 'Raleway'
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView(
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 20),
+                      _buildDetailsRow('Order No.', orderNo),
+                      _buildDetailsRow('Table/Covers', '$tableNo / $covers'),
+                      _buildDetailsRow('Waiter', waiterName),
+                      _buildDetailsRow('Order Type', orderType),
+                      _buildDetailsRow('Time', orderTime),
+                      const Divider(height: 30, thickness: 1, color: Colors.grey),
+                      _buildItemsTable(),
+                      const SizedBox(height: 80), // Space above fixed total
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _confirmPayment(grandTotal),
-                icon: const Icon(Icons.payment),
-                label: Text(
-                  'Pay ${numberFormatter.format(grandTotal)}',
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryColor,
-                  foregroundColor: kTertiaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  textStyle: const TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold, 
-                    fontFamily: 'Raleway'
+
+            // ✅ Fixed Sub Total section at bottom
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, -2),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTaxAndTotalSection(),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _printBill,
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print Bill'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: kTertiaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Raleway',
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _confirmPayment(grandTotal),
+                          icon: const Icon(Icons.payment),
+                          label: Text(
+                            'Pay ${numberFormatter.format(grandTotal)}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: kTertiaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Raleway',
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   void _navigateToRunningOrders() {
     Navigator.pushReplacement(
