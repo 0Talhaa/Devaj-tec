@@ -1,3 +1,5 @@
+// ignore_for_file: await_only_futures, dead_code
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
