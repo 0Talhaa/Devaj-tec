@@ -9,6 +9,7 @@ import 'package:start_app/custom_loader.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/bill_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:start_app/main.dart' show kPrimaryColor, kTertiaryColor, kSecondaryColor;
 
 
 // Constants for order calculations
@@ -851,7 +852,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
           @TiltId = $tiltId,
           @CounterId = 0,
           @Waiter = '${_currentUser.replaceAll(r'\/', '/').replaceAll('\\', '\\\\')}',
-          @TableNo = '',
+          @TableNo = 0,
           @cover = 0,
           @tab_unique_id = '$tabUniqueIdN',
           @device_no = '$deviceNo',
@@ -1894,18 +1895,9 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
       child: Scaffold(
         appBar: AppBar(
           title: Text('Take Away - ${_finalTiltName ?? "T2"}'),
-          bottom: _tabController != null && _categories.isNotEmpty
-              ? TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabs: _categories.map((category) => Tab(text: category['category_name'] as String)).toList(),
-                  onTap: (index) {
-                    setState(() {
-                      _selectedCategory = _categories[index]['category_name'] as String;
-                    });
-                  },
-                )
-              : null,
+         
+             
+              
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF75E5E2)))
@@ -1981,7 +1973,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                             crossAxisCount: 2,
                             crossAxisSpacing: 8.0,
                             mainAxisSpacing: 8.0,
-                            childAspectRatio: 0.7,
+                            childAspectRatio: 1.1,
                           ),
                           itemCount: _categoryItems[_selectedCategory]?.length ?? 0,
                           itemBuilder: (context, index) {

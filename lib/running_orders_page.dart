@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
+import 'package:start_app/CreditBill.dart';
 import 'package:start_app/custom_loader.dart' as Loader;
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/cash_bill_screen.dart';
@@ -263,7 +264,19 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                             ),
                                             const SizedBox(width: 8),
                                             ElevatedButton(
-                                              onPressed: () {},
+                                              onPressed: () {
+                                                final orderNo = order['order_no'] ?? '-';
+                                                final tabUniqueId = order['tab_unique_id'] ?? '';
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => CreditBillScreen(
+                                                      orderNo: orderNo,
+                                                      tabUniqueId: tabUniqueId,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: Colors.blue,
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),

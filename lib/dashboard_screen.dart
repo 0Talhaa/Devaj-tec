@@ -28,41 +28,44 @@ appBar: AppBar(
   // Disable default title alignment
   automaticallyImplyLeading: false,
 
-  title: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      // 👈 Left side: Logout button
-      IconButton(
-        icon: const Icon(Icons.logout),
-        tooltip: 'Logout',
-        onPressed: () async {
-          await DatabaseHelper.instance.clearLoggedInUser();
-          if (context.mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginScreen(
-                  tiltId: tiltId,
-                  tiltName: tiltName,
-                ),
+title: Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    // 👈 Left side: Logout button
+    IconButton(
+      icon: const Icon(Icons.logout),
+      tooltip: 'Logout',
+      onPressed: () async {
+        await DatabaseHelper.instance.clearLoggedInUser();
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LoginScreen(
+                tiltId: tiltId,
+                tiltName: tiltName,
               ),
-              (route) => false,
-            );
-          }
-        },
-      ),
+            ),
+            (route) => false,
+          );
+        }
+      },
+    ),
 
-      // 👉 Right side: Dashboard text
-      const Text(
+    // 👉 Right side: Dashboard text with padding
+    Padding(
+      padding: const EdgeInsets.only(right: 260,top: 30), // 👈 Add space from right edge
+      child: const Text(
         'DASHBOARD',
         style: TextStyle(
           fontFamily: 'Raleway',
           fontWeight: FontWeight.bold,
-          fontSize: 24,
+          fontSize: 35,
         ),
       ),
-    ],
-  ),
+    ),
+  ],
+),
 ),
 
       extendBodyBehindAppBar: true,
@@ -88,7 +91,7 @@ appBar: AppBar(
   Widget _buildLargeScreenLayout(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1200),
+        constraints: const BoxConstraints(maxWidth: 1100),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 48.0, vertical: 24.0),
           child: Row(

@@ -473,7 +473,7 @@ class _ConnectionFormState extends State<ConnectionForm>
       ),
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(23.0),
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: 800,

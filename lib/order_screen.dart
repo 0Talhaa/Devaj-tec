@@ -12,13 +12,14 @@ import 'package:intl/intl.dart';
 
 // Constants for map keys
 class OrderConstants {
-  static const String itemId = 'id';
-  static const String itemName = 'item_name';
-  static const String salePrice = 'sale_price';
-  static const String quantity = 'quantity';
-  static const String taxPercent = 'tax_percent';
+  static const String itemId = 'ItemId'; // Updated
+  static const String itemName = 'ItemName'; // Updated
+  static const String salePrice = 'Price'; // Updated
+  static const String quantity = 'Quantity'; // Updated
+  static const String taxPercent = 'Tax'; // Updated
   static const String discountPercent = 'discount_percent';
   static const String comments = 'Comments';
+  static const String orderDetailId = 'OrderDetailId'; // Updated
 }
 
 // Model class for OrderItem
@@ -43,32 +44,18 @@ class OrderItem {
     this.orderDetailId = '0',
   });
 
-  factory OrderItem.fromMap(Map<String, dynamic> map) {
+factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
       itemId: map[OrderConstants.itemId]?.toString() ?? '0',
       itemName: map[OrderConstants.itemName] ?? 'Unknown',
-      salePrice:
-          double.tryParse(map[OrderConstants.salePrice]?.toString() ?? '0') ??
-          0.0,
-      quantity:
-          (double.tryParse(map[OrderConstants.quantity]?.toString() ?? '0') ??
-                  0)
-              .toInt(),
-      taxPercent:
-          double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '0') ==
-              0.0
+      salePrice: double.tryParse(map[OrderConstants.salePrice]?.toString() ?? '0') ?? 0.0,
+      quantity: (double.tryParse(map[OrderConstants.quantity]?.toString() ?? '0') ?? 0).toInt(),
+      taxPercent: double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '0') == 0.0
           ? 5.0
-          : double.tryParse(
-                  map[OrderConstants.taxPercent]?.toString() ?? '5.0',
-                ) ??
-                5.0,
-      discountPercent:
-          double.tryParse(
-            map[OrderConstants.discountPercent]?.toString() ?? '0',
-          ) ??
-          0.0,
+          : double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '5.0') ?? 5.0,
+      discountPercent: double.tryParse(map[OrderConstants.discountPercent]?.toString() ?? '0') ?? 0.0,
       comments: map[OrderConstants.comments]?.toString() ?? '',
-      orderDetailId: map['orderDetailId']?.toString() ?? '0',
+      orderDetailId: map[OrderConstants.orderDetailId]?.toString() ?? '0',
     );
   }
 
@@ -190,112 +177,130 @@ class _OrderScreenState extends State<OrderScreen>
     debugPrint("📥 Loaded Tilt => Id=$_finalTiltId, Name=$_finalTiltName");
   }
 
-  Future<void> _fetchExistingOrder(String tabUniqueId) async {
-    try {
-      final conn = await DatabaseHelper.instance.getConnectionDetails();
-      if (conn == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Connection details missing')),
-        );
-        return;
-      }
-
-      if (!await SqlConn.isConnected) {
-        await SqlConn.connect(
-          ip: conn['ip'],
-          port: conn['port'],
-          databaseName: conn['dbName'],
-          username: conn['username'],
-          password: conn['password'],
-        );
-      }
-
-      setState(() {
-        _tabUniqueId = tabUniqueId;
-      });
-
-      final query =
-          """
-        SELECT DISTINCT 
-          d.itemid AS id, 
-          d.item_name, 
-          d.qty, 
-          d.Comments,
-          (i.sale_price) AS item_unit_price,
-          d.id AS orderDetailId, 
-          d.tax AS tax,
-          (SELECT KotStatus FROM OrderKot WHERE OrderDetailId=d.id) AS kotstatus,
-          1 AS is_upload
-        FROM order_detail d
-        INNER JOIN dine_in_order m ON d.order_key = m.order_key
-        INNER JOIN itempos i ON i.id = d.itemid
-        WHERE m.tab_unique_id = '$tabUniqueId'
-      """;
-
-      final result = await SqlConn.readData(query);
-      if (result.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No items found for tabUniqueId=$tabUniqueId'),
-          ),
-        );
-        return;
-      }
-
-      final decoded = jsonDecode(result) as List<dynamic>;
-      debugPrint("🧩 Raw SQL Result: $result");
-      setState(() {
-        _activeOrderItems = decoded
-            .map((row) {
-              final qty = (double.tryParse(row["qty"]?.toString() ?? '0') ?? 0)
-                  .toInt();
-              final unitPrice =
-                  double.tryParse(row["item_unit_price"]?.toString() ?? '0') ??
-                  0.0;
-              final tax = double.tryParse(row["tax"]?.toString() ?? '0') == 0.0
-                  ? 5.0
-                  : double.tryParse(row["tax"]?.toString() ?? '5.0') ?? 5.0;
-              final discount =
-                  double.tryParse(row["discount"]?.toString() ?? '0') ?? 0.0;
-              final itemId = row["itemid"]?.toString() ?? '0';
-              final orderDetailId = row["orderDetailId"]?.toString() ?? '0';
-
-              if (itemId == '1' || itemId.isEmpty) {
-                debugPrint(
-                  "⚠️ Warning: Invalid item ID for ${row['item_name']}",
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Invalid item ID for ${row['item_name']}'),
-                  ),
-                );
-                return null;
-              }
-
-              return OrderItem(
-                itemId: itemId,
-                itemName: row["item_name"] ?? 'Unknown',
-                salePrice: unitPrice,
-                quantity: qty,
-                taxPercent: tax,
-                discountPercent: discount,
-                comments: row["Comments"]?.toString() ?? '',
-                orderDetailId: orderDetailId,
-              );
-            })
-            .where((item) => item != null)
-            .cast<OrderItem>()
-            .toList();
-        _calculateTotalBill();
-      });
-      debugPrint("🧩 Loaded existing order: ${_activeOrderItems.length} items");
-    } catch (e, stackTrace) {
-      debugPrint('❌ Error fetching existing order: $e\n$stackTrace');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to fetch order: $e')));
+Future<List<dynamic>> executeStoredProcedure(String procedureName, List<String> parameters) async {
+  try {
+    // Create the EXEC syntax
+    String query = 'EXEC $procedureName ';
+    for (int i = 0; i < parameters.length; i++) {
+      final escapedParam = parameters[i].replaceAll("'", "''");
+      query += "@p$i = N'$escapedParam'";
+      if (i < parameters.length - 1) query += ', ';
     }
+
+    debugPrint("📞 Stored Procedure Call: $query");
+    debugPrint("📎 Parameters: $parameters");
+
+    // Execute the stored procedure
+    final result = await _mssql.getData(query);
+
+    // Parse JSON result
+    final decoded = jsonDecode(result) as List<dynamic>;
+    debugPrint("✅ Stored Procedure executed successfully");
+    return decoded;
+  } catch (e) {
+    debugPrint('❌ Stored Procedure Error: $e');
+    rethrow;
   }
+}
+Future<void> _fetchExistingOrder(String tabUniqueId) async {
+  try {
+    final conn = await DatabaseHelper.instance.getConnectionDetails();
+    if (conn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection details missing')),
+      );
+      return;
+    }
+
+    // Connect to SQL Server
+    await _mssql.connect(
+      ip: conn['ip'],
+      port: conn['port'],
+      databaseName: conn['dbName'],
+      username: conn['username'],
+      password: conn['password'],
+      timeoutInSeconds: 10,
+    );
+
+    setState(() {
+      _tabUniqueId = tabUniqueId;
+    });
+
+    // ✅ Safe raw query (escaping to prevent SQL injection)
+    final escapedTabUniqueId = tabUniqueId.replaceAll("'", "''");
+    final query = "EXEC sp_EditOrder @TabUniqueId = N'$escapedTabUniqueId'";
+    final start = DateTime.now();
+    final result = await _mssql.getData(query);
+    debugPrint("⏱️ Stored Procedure Execution Time: ${DateTime.now().difference(start).inMilliseconds}ms");
+    debugPrint("📋 Executed Query: $query");
+
+    if (result.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No items found for tabUniqueId=$tabUniqueId')),
+      );
+      return;
+    }
+
+    // Parse the result
+    final decoded = jsonDecode(result) as List<dynamic>;
+    debugPrint("🧩 Stored Procedure Result: ${decoded.length} rows");
+    debugPrint("📋 Raw Result Sample: ${decoded.isNotEmpty ? decoded[0] : 'Empty'}");
+    debugPrint("📋 Result Keys: ${decoded.isNotEmpty ? decoded[0].keys : 'Empty'}");
+
+    setState(() {
+      _activeOrderItems = decoded
+          .map((row) {
+            // ✅ Use exact column aliases from sp_EditOrder
+            final qty = (double.tryParse(row["Quantity"]?.toString() ?? '0') ?? 0).toInt();
+            final price = double.tryParse(row["Price"]?.toString() ?? '0') ?? 0.0;
+            final tax = double.tryParse(row["Tax"]?.toString() ?? '0') == 0.0
+                ? 5.0
+                : double.tryParse(row["Tax"]?.toString() ?? '5.0') ?? 5.0;
+            final itemId = row["ItemId"]?.toString() ?? '0';
+            final orderDetailId = row["OrderDetailId"]?.toString() ?? '0';
+            final comments = row["Comments"]?.toString() ?? '';
+            final itemName = row["ItemName"]?.toString() ?? 'Unknown';
+
+            if (itemId == '1' || itemId.isEmpty) {
+              debugPrint("⚠️ Warning: Invalid item ID for $itemName");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Invalid item ID for $itemName')),
+              );
+              return null;
+            }
+
+            return OrderItem(
+              itemId: itemId,
+              itemName: itemName,
+              salePrice: qty == 0 ? price : price / qty, // Per item unit price
+              quantity: qty,
+              taxPercent: tax,
+              discountPercent: 0.0, // Note: Stored procedure doesn't return discount
+              comments: comments,
+              orderDetailId: orderDetailId,
+            );
+          })
+          .where((item) => item != null)
+          .cast<OrderItem>()
+          .toList();
+
+      _calculateTotalBill();
+    });
+
+    debugPrint("🧩 Loaded existing order: ${_activeOrderItems.length} items");
+  } catch (e, stackTrace) {
+    debugPrint('❌ Error fetching existing order: $e\n$stackTrace');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to fetch order: $e')),
+    );
+  } finally {
+    // Ensure connection is closed
+    await _mssql.disconnect();
+    debugPrint('🛑 SQL Server connection closed');
+  }
+}
+
+
 
   void _generateNewTabUniqueId() {
     if (widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty) {
@@ -827,186 +832,184 @@ class _OrderScreenState extends State<OrderScreen>
     );
   }
 
-  Future<void> _showAuthDialog({
-    required String itemId,
-    required String itemName,
-    required String reason,
-    required String authUsername,
-    required OrderItem orderItem,
-    required Function(int) onSuccess,
-  }) async {
-    final TextEditingController passwordController = TextEditingController();
-    bool obscurePassword = true;
+// ... (Other imports and code remain unchanged)
 
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              backgroundColor: const Color(0xFF182022),
-              title: Text(
-                'Authenticate for $itemName',
-                style: const TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: passwordController,
-                    obscureText: obscurePassword,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Enter password',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.grey.shade800,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+// Inside _OrderScreenState class
+Future<void> _showAuthDialog({
+  required String itemId,
+  required String itemName,
+  required String reason,
+  required String authUsername,
+  required OrderItem orderItem,
+  required Function(int) onSuccess,
+}) async {
+  final TextEditingController passwordController = TextEditingController();
+  bool obscurePassword = true;
+
+  await showDialog(
+    context: context,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: const Color(0xFF182022),
+            title: Text(
+              'Authenticate for $itemName',
+              style: const TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+               Text(
+                    'Username: $authUsername',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Enter password for $authUsername',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.grey.shade800,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white54,
                       ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.white54,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
-                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscurePassword = !obscurePassword;
+                        });
+                      },
                     ),
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF75E5E2),
-                    foregroundColor: const Color(0xFF0D1D20),
-                  ),
-                  onPressed: () async {
-                    final password = passwordController.text.trim();
-                    if (password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a password'),
-                          backgroundColor: Colors.red,
-                        ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF75E5E2),
+                  foregroundColor: const Color(0xFF0D1D20),
+                ),
+                onPressed: () async {
+                  final password = passwordController.text.trim();
+                  if (password.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a password'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Verify credentials
+                  final connDetails = await DatabaseHelper.instance.getConnectionDetails();
+                  if (connDetails == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Connection details missing'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    Navigator.of(ctx).pop();
+                    return;
+                  }
+
+                  // Connect to SQL Server and verify credentials
+                  try {
+                    await SqlConn.connect(
+                      ip: connDetails['ip'] as String,
+                      port: connDetails['port'] as String,
+                      databaseName: connDetails['dbName'] as String,
+                      username: connDetails['username'] as String,
+                      password: connDetails['password'] as String,
+                      timeout: 10,
+                    );
+
+                    // ✅ Modified query to validate any user
+                    final loginQuery =
+                        "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '${password.replaceAll("'", "''")}'";
+                    final loginResult = await SqlConn.readData(loginQuery);
+                    debugPrint("📝 Auth Query: $loginQuery");
+                    debugPrint("📤 Auth Result: $loginResult");
+
+                    if (jsonDecode(loginResult).isNotEmpty) {
+                      // Authentication successful, call insertItemLess
+                      final result = await insertItemLess(
+                        tabUniqueId: _tabUniqueId ?? '',
+                        quantity: orderItem.quantity,
+                        orderDetailId: orderItem.orderDetailId,
+                        username: _currentUser,
+                        authenticateUsername: authUsername,
+                        reason: reason,
+                        tiltId: (_finalTiltId ?? 0).toString(),
                       );
-                      return;
-                    }
 
-                    // Verify credentials
-                    final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-                    final loggedUser = await DatabaseHelper.instance.getLoggedInUser();
-
-                    if (connDetails == null || loggedUser == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('User not logged in or connection details missing'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      Navigator.of(ctx).pop();
-                      return;
-                    }
-
-                    // Check if entered username matches logged-in user
-                    if (authUsername != loggedUser) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Username does not match logged-in user'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Connect to SQL Server and verify credentials
-                    try {
-                      await SqlConn.connect(
-                        ip: connDetails['ip'] as String,
-                        port: connDetails['port'] as String,
-                        databaseName: connDetails['dbName'] as String,
-                        username: connDetails['username'] as String,
-                        password: connDetails['password'] as String,
-                        timeout: 10,
-                      );
-
-                      final loginQuery =
-                          "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '$password'";
-                      final loginResult = await SqlConn.readData(loginQuery);
-
-                      if (jsonDecode(loginResult).isNotEmpty) {
-                        // Authentication successful, call insertItemLess
-                        final result = await insertItemLess(
-                          tabUniqueId: _tabUniqueId ?? '',
-                          quantity: orderItem.quantity,
-                          orderDetailId: orderItem.orderDetailId,
-                          username: _currentUser,
-                          authenticateUsername: authUsername,
-                          reason: reason,
-                          tiltId: (_finalTiltId ?? 0).toString(),
+                      if (result > 0) {
+                        onSuccess(result);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Item reduced successfully, ID: $result'),
+                            backgroundColor: Colors.green,
+                          ),
                         );
-
-                        if (result > 0) {
-                          onSuccess(result);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Item reduced successfully, ID: $result'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to reduce item'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
                         Navigator.of(ctx).pop();
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Invalid password'),
+                            content: Text('Failed to reduce item'),
                             backgroundColor: Colors.red,
                           ),
                         );
                       }
-                    } catch (e) {
-                      debugPrint('❌ Error during authentication: $e');
+                    } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Authentication failed: $e'),
+                        const SnackBar(
+                          content: Text('Invalid username or password'),
                           backgroundColor: Colors.red,
                         ),
                       );
-                    } finally {
-                      await SqlConn.disconnect();
                     }
-                  },
-                  child: const Text('Authenticate'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
+                  } catch (e) {
+                    debugPrint('❌ Error during authentication: $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Authentication failed: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  } finally {
+                    await SqlConn.disconnect();
+                    debugPrint('🛑 SQL Server connection closed');
+                  }
+                },
+                child: const Text('Authenticate'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
   Future<void> _showCommentDialog(OrderItem item) async {
     final defaultText = item.comments.isNotEmpty
         ? item.comments
@@ -1647,10 +1650,10 @@ class _OrderScreenState extends State<OrderScreen>
                   child: GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
+                          crossAxisCount: 3,
                           crossAxisSpacing: 8.0,
                           mainAxisSpacing: 8.0,
-                          childAspectRatio: 0.7,
+                          childAspectRatio: 1.2,
                         ),
                     itemCount: _categoryItems[_selectedCategory]?.length ?? 0,
                     itemBuilder: (context, index) {
