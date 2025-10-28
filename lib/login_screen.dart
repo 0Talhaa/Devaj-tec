@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
-import 'package:start_app/custom_loader.dart' as loader;
 import 'package:start_app/dashboard_screen.dart';
 import 'package:start_app/main.dart'; // For ConnectionForm
 import 'package:start_app/database_halper.dart';
+import 'package:start_app/custom_app_loader.dart';
+import 'package:start_app/loader_utils.dart';
 
 class LoginScreen extends StatefulWidget {
   final int tiltId;
@@ -52,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   // Load saved connection details from SQLite
   Future<void> _loadConnectionDetails() async {
     final details = await DatabaseHelper.instance.getConnectionDetails();
-    // loader.showLoader(context);
     if (details != null) {
       setState(() {
         _connectionDetails = details;
@@ -76,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Future<void> _fetchUsers() async {
     if (_connectionDetails == null) return;
 
+    AppLoaderOverlay.show(context, message: "Fetching users...");
     setState(() {
       _isConnecting = true;
     });
@@ -115,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       print('❌ Error fetching users: $e');
     } finally {
       await SqlConn.disconnect();
-      // loader.hideLoader();
+      AppLoaderOverlay.hide();
       if (mounted) {
         setState(() {
           _isConnecting = false;
@@ -136,6 +137,17 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       return;
     }
 
+    if (!LoaderUtils.hasConnection()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Please check your network.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    AppLoaderOverlay.show(context, message: "Logging in...");
     setState(() {
       _isConnecting = true;
     });
@@ -199,6 +211,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       print('❌ Error during login: $e');
     } finally {
       await SqlConn.disconnect();
+      AppLoaderOverlay.hide();
       if (mounted) {
         setState(() {
           _isConnecting = false;
@@ -209,6 +222,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   // Sync categories and items from SQL Server to SQLite
   Future<void> _syncDataAndLogin() async {
+    AppLoaderOverlay.hide(); // Hide login loader
+    AppLoaderOverlay.show(context, message: "Syncing data...");
     try {
       final categoriesEmpty = await DatabaseHelper.instance.isCategoriesTableEmpty();
       final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
@@ -239,6 +254,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       }
 
       // Navigate to Dashboard
+      AppLoaderOverlay.hide();
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -252,6 +268,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         );
       }
     } catch (e) {
+      AppLoaderOverlay.hide();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

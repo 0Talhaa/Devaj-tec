@@ -7,6 +7,7 @@ import 'package:mssql_connection/mssql_connection.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/bill_screen.dart';
+import 'package:start_app/custom_app_loader.dart';
 import 'package:intl/intl.dart';
 import 'package:start_app/customer_search_screen.dart'; // <--- अब Customer मॉडल केवल यहीं से लिया जाएगा
 
@@ -1594,11 +1595,7 @@ appBar: _hasCustomerDetails
                 title: const Text('Enter Customer Details'),
               ),
         body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF75E5E2),
-                ),
-              )
+            ? const AppLoader(message: 'Loading menu...')
             : _hasCustomerDetails
                 ? LayoutBuilder(
                     builder: (context, constraints) {

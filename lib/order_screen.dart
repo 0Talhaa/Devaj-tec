@@ -9,6 +9,8 @@ import 'package:start_app/database_halper.dart';
 import 'package:sql_conn/sql_conn.dart';
 import 'package:start_app/bill_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:start_app/custom_app_loader.dart';
+import 'package:start_app/loader_utils.dart';
 
 // Constants for map keys
 class OrderConstants {
@@ -32,6 +34,7 @@ class OrderItem {
   final double discountPercent;
   final String comments;
   final String orderDetailId;
+  final int KotStatus; // New field for KOT
 
   OrderItem({
     required this.itemId,
@@ -42,20 +45,37 @@ class OrderItem {
     required this.discountPercent,
     required this.comments,
     this.orderDetailId = '0',
+    this.KotStatus = 0, // Default to 0
   });
 
-factory OrderItem.fromMap(Map<String, dynamic> map) {
+  factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
       itemId: map[OrderConstants.itemId]?.toString() ?? '0',
       itemName: map[OrderConstants.itemName] ?? 'Unknown',
-      salePrice: double.tryParse(map[OrderConstants.salePrice]?.toString() ?? '0') ?? 0.0,
-      quantity: (double.tryParse(map[OrderConstants.quantity]?.toString() ?? '0') ?? 0).toInt(),
-      taxPercent: double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '0') == 0.0
+      salePrice:
+          double.tryParse(map[OrderConstants.salePrice]?.toString() ?? '0') ??
+          0.0,
+      quantity:
+          (double.tryParse(map[OrderConstants.quantity]?.toString() ?? '0') ??
+                  0)
+              .toInt(),
+      taxPercent:
+          double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '0') ==
+              0.0
           ? 5.0
-          : double.tryParse(map[OrderConstants.taxPercent]?.toString() ?? '5.0') ?? 5.0,
-      discountPercent: double.tryParse(map[OrderConstants.discountPercent]?.toString() ?? '0') ?? 0.0,
+          : double.tryParse(
+                  map[OrderConstants.taxPercent]?.toString() ?? '5.0',
+                ) ??
+                5.0,
+      discountPercent:
+          double.tryParse(
+            map[OrderConstants.discountPercent]?.toString() ?? '0',
+          ) ??
+          0.0,
       comments: map[OrderConstants.comments]?.toString() ?? '',
       orderDetailId: map[OrderConstants.orderDetailId]?.toString() ?? '0',
+      KotStatus:
+          int.tryParse(map['KotStatus']?.toString() ?? '0') ?? 0, // Parse KOT
     );
   }
 
@@ -69,6 +89,7 @@ factory OrderItem.fromMap(Map<String, dynamic> map) {
       OrderConstants.discountPercent: discountPercent,
       OrderConstants.comments: comments,
       'orderDetailId': orderDetailId,
+      'KOT': KotStatus, // Include KOT in map
     };
   }
 }
@@ -177,130 +198,150 @@ class _OrderScreenState extends State<OrderScreen>
     debugPrint("📥 Loaded Tilt => Id=$_finalTiltId, Name=$_finalTiltName");
   }
 
-Future<List<dynamic>> executeStoredProcedure(String procedureName, List<String> parameters) async {
-  try {
-    // Create the EXEC syntax
-    String query = 'EXEC $procedureName ';
-    for (int i = 0; i < parameters.length; i++) {
-      final escapedParam = parameters[i].replaceAll("'", "''");
-      query += "@p$i = N'$escapedParam'";
-      if (i < parameters.length - 1) query += ', ';
+  Future<List<dynamic>> executeStoredProcedure(
+    String procedureName,
+    List<String> parameters,
+  ) async {
+    try {
+      // Create the EXEC syntax
+      String query = 'EXEC $procedureName ';
+      for (int i = 0; i < parameters.length; i++) {
+        final escapedParam = parameters[i].replaceAll("'", "''");
+        query += "@p$i = N'$escapedParam'";
+        if (i < parameters.length - 1) query += ', ';
+      }
+
+      debugPrint("📞 Stored Procedure Call: $query");
+      debugPrint("📎 Parameters: $parameters");
+
+      // Execute the stored procedure
+      final result = await _mssql.getData(query);
+
+      // Parse JSON result
+      final decoded = jsonDecode(result) as List<dynamic>;
+      debugPrint("✅ Stored Procedure executed successfully");
+      return decoded;
+    } catch (e) {
+      debugPrint('❌ Stored Procedure Error: $e');
+      rethrow;
     }
-
-    debugPrint("📞 Stored Procedure Call: $query");
-    debugPrint("📎 Parameters: $parameters");
-
-    // Execute the stored procedure
-    final result = await _mssql.getData(query);
-
-    // Parse JSON result
-    final decoded = jsonDecode(result) as List<dynamic>;
-    debugPrint("✅ Stored Procedure executed successfully");
-    return decoded;
-  } catch (e) {
-    debugPrint('❌ Stored Procedure Error: $e');
-    rethrow;
   }
-}
-Future<void> _fetchExistingOrder(String tabUniqueId) async {
-  try {
-    final conn = await DatabaseHelper.instance.getConnectionDetails();
-    if (conn == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connection details missing')),
+
+  Future<void> _fetchExistingOrder(String tabUniqueId) async {
+    try {
+      final conn = await DatabaseHelper.instance.getConnectionDetails();
+      if (conn == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connection details missing')),
+        );
+        return;
+      }
+
+      // Connect to SQL Server
+      await _mssql.connect(
+        ip: conn['ip'],
+        port: conn['port'],
+        databaseName: conn['dbName'],
+        username: conn['username'],
+        password: conn['password'],
+        timeoutInSeconds: 10,
       );
-      return;
-    }
 
-    // Connect to SQL Server
-    await _mssql.connect(
-      ip: conn['ip'],
-      port: conn['port'],
-      databaseName: conn['dbName'],
-      username: conn['username'],
-      password: conn['password'],
-      timeoutInSeconds: 10,
-    );
+      setState(() {
+        _tabUniqueId = tabUniqueId;
+      });
 
-    setState(() {
-      _tabUniqueId = tabUniqueId;
-    });
-
-    // ✅ Safe raw query (escaping to prevent SQL injection)
-    final escapedTabUniqueId = tabUniqueId.replaceAll("'", "''");
-    final query = "EXEC sp_EditOrder @TabUniqueId = N'$escapedTabUniqueId'";
-    final start = DateTime.now();
-    final result = await _mssql.getData(query);
-    debugPrint("⏱️ Stored Procedure Execution Time: ${DateTime.now().difference(start).inMilliseconds}ms");
-    debugPrint("📋 Executed Query: $query");
-
-    if (result.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No items found for tabUniqueId=$tabUniqueId')),
+      // ✅ Safe raw query (escaping to prevent SQL injection)
+      final escapedTabUniqueId = tabUniqueId.replaceAll("'", "''");
+      final query = "EXEC sp_EditOrder @TabUniqueId = N'$escapedTabUniqueId'";
+      final start = DateTime.now();
+      final result = await _mssql.getData(query);
+      debugPrint(
+        "⏱️ Stored Procedure Execution Time: ${DateTime.now().difference(start).inMilliseconds}ms",
       );
-      return;
-    }
+      debugPrint("📋 Executed Query: $query");
 
-    // Parse the result
-    final decoded = jsonDecode(result) as List<dynamic>;
-    debugPrint("🧩 Stored Procedure Result: ${decoded.length} rows");
-    debugPrint("📋 Raw Result Sample: ${decoded.isNotEmpty ? decoded[0] : 'Empty'}");
-    debugPrint("📋 Result Keys: ${decoded.isNotEmpty ? decoded[0].keys : 'Empty'}");
+      if (result.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No items found for tabUniqueId=$tabUniqueId'),
+          ),
+        );
+        return;
+      }
 
-    setState(() {
-      _activeOrderItems = decoded
-          .map((row) {
-            // ✅ Use exact column aliases from sp_EditOrder
-            final qty = (double.tryParse(row["Quantity"]?.toString() ?? '0') ?? 0).toInt();
-            final price = double.tryParse(row["Price"]?.toString() ?? '0') ?? 0.0;
-            final tax = double.tryParse(row["Tax"]?.toString() ?? '0') == 0.0
-                ? 5.0
-                : double.tryParse(row["Tax"]?.toString() ?? '5.0') ?? 5.0;
-            final itemId = row["ItemId"]?.toString() ?? '0';
-            final orderDetailId = row["OrderDetailId"]?.toString() ?? '0';
-            final comments = row["Comments"]?.toString() ?? '';
-            final itemName = row["ItemName"]?.toString() ?? 'Unknown';
+      // Parse the result
+      final decoded = jsonDecode(result) as List<dynamic>;
+      debugPrint("🧩 Stored Procedure Result: ${decoded.length} rows");
+      debugPrint(
+        "📋 Raw Result Sample: ${decoded.isNotEmpty ? decoded[0] : 'Empty'}",
+      );
+      debugPrint(
+        "📋 Result Keys: ${decoded.isNotEmpty ? decoded[0].keys : 'Empty'}",
+      );
 
-            if (itemId == '1' || itemId.isEmpty) {
-              debugPrint("⚠️ Warning: Invalid item ID for $itemName");
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Invalid item ID for $itemName')),
+      setState(() {
+        _activeOrderItems = decoded
+            .map((row) {
+              // ✅ Use exact column aliases from sp_EditOrder
+              final qty =
+                  (double.tryParse(row["Quantity"]?.toString() ?? '0') ?? 0)
+                      .toInt();
+              final price =
+                  double.tryParse(row["Price"]?.toString() ?? '0') ?? 0.0;
+              final tax = double.tryParse(row["Tax"]?.toString() ?? '0') == 0.0
+                  ? 5.0
+                  : double.tryParse(row["Tax"]?.toString() ?? '5.0') ?? 5.0;
+              final itemId = row["ItemId"]?.toString() ?? '0';
+              final orderDetailId = row["OrderDetailId"]?.toString() ?? '0';
+              final comments = row["Comments"]?.toString() ?? '';
+              final itemName = row["ItemName"]?.toString() ?? 'Unknown';
+              final KotStatus =
+                  int.tryParse(row["KotStatus"]?.toString() ?? '0') ??
+                  0; // Parse KOT
+
+              if (itemId == '1' || itemId.isEmpty) {
+                debugPrint("⚠️ Warning: Invalid item ID for $itemName");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Invalid item ID for $itemName')),
+                );
+                return null;
+              }
+
+              return OrderItem(
+                itemId: itemId,
+                itemName: itemName,
+                salePrice: qty == 0
+                    ? price
+                    : price / qty, // Per item unit price
+                quantity: qty,
+                taxPercent: tax,
+                discountPercent:
+                    0.0, // Note: Stored procedure doesn't return discount
+                comments: comments,
+                orderDetailId: orderDetailId,
+                KotStatus: KotStatus, // Include KOT
               );
-              return null;
-            }
+            })
+            .where((item) => item != null)
+            .cast<OrderItem>()
+            .toList();
 
-            return OrderItem(
-              itemId: itemId,
-              itemName: itemName,
-              salePrice: qty == 0 ? price : price / qty, // Per item unit price
-              quantity: qty,
-              taxPercent: tax,
-              discountPercent: 0.0, // Note: Stored procedure doesn't return discount
-              comments: comments,
-              orderDetailId: orderDetailId,
-            );
-          })
-          .where((item) => item != null)
-          .cast<OrderItem>()
-          .toList();
+        _calculateTotalBill();
+      });
 
-      _calculateTotalBill();
-    });
-
-    debugPrint("🧩 Loaded existing order: ${_activeOrderItems.length} items");
-  } catch (e, stackTrace) {
-    debugPrint('❌ Error fetching existing order: $e\n$stackTrace');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to fetch order: $e')),
-    );
-  } finally {
-    // Ensure connection is closed
-    await _mssql.disconnect();
-    debugPrint('🛑 SQL Server connection closed');
+      debugPrint("🧩 Loaded existing order: ${_activeOrderItems.length} items");
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error fetching existing order: $e\n$stackTrace');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to fetch order: $e')));
+    } finally {
+      // Ensure connection is closed
+      await _mssql.disconnect();
+      debugPrint('🛑 SQL Server connection closed');
+    }
   }
-}
-
-
 
   void _generateNewTabUniqueId() {
     if (widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty) {
@@ -526,7 +567,8 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
       }
 
       // Updated query to handle @Output parameter
-      final query = """
+      final query =
+          """
         DECLARE @Output INT;
         EXEC spItemLessPunch 
             @OrderDtlID = '$orderDetailId',
@@ -660,13 +702,17 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
 
       final decoded = jsonDecode(result) as List<dynamic>;
       final reasons = decoded
-          .map((row) => {
-                'id': row['id']?.toString(),
-                'Reason': row['Reason']?.toString(),
-              })
-          .where((reason) =>
-              reason['id']?.isNotEmpty == true &&
-              reason['Reason']?.isNotEmpty == true)
+          .map(
+            (row) => {
+              'id': row['id']?.toString(),
+              'Reason': row['Reason']?.toString(),
+            },
+          )
+          .where(
+            (reason) =>
+                reason['id']?.isNotEmpty == true &&
+                reason['Reason']?.isNotEmpty == true,
+          )
           .toList();
 
       return reasons;
@@ -738,13 +784,15 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
                   hintText: 'Select reason for reduction',
                   hintStyle: const TextStyle(color: Colors.white54),
                   filled: true,
-                  fillColor: Colors.grey.shade800,
+                  fillColor: const Color.fromARGB(255, 0, 0, 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 dropdownColor: Colors.grey.shade800,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 255, 255, 255),
+                ),
                 items: reasons.map((reason) {
                   return DropdownMenuItem<String>(
                     value: reason['Reason'],
@@ -762,13 +810,15 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
                   hintText: 'Select authenticate username',
                   hintStyle: const TextStyle(color: Colors.white54),
                   filled: true,
-                  fillColor: Colors.grey.shade800,
+                  fillColor: const Color.fromARGB(255, 0, 0, 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 dropdownColor: Colors.grey.shade800,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 255, 255, 255),
+                ),
                 items: usernames.map((username) {
                   return DropdownMenuItem<String>(
                     value: username,
@@ -798,9 +848,7 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
                 if (selectedReason == null || selectedUsername == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Please select a reason and a username',
-                      ),
+                      content: Text('Please select a reason and a username'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -832,184 +880,190 @@ Future<void> _fetchExistingOrder(String tabUniqueId) async {
     );
   }
 
-// ... (Other imports and code remain unchanged)
+  // ... (Other imports and code remain unchanged)
 
-// Inside _OrderScreenState class
-Future<void> _showAuthDialog({
-  required String itemId,
-  required String itemName,
-  required String reason,
-  required String authUsername,
-  required OrderItem orderItem,
-  required Function(int) onSuccess,
-}) async {
-  final TextEditingController passwordController = TextEditingController();
-  bool obscurePassword = true;
+  // Inside _OrderScreenState class
+  Future<void> _showAuthDialog({
+    required String itemId,
+    required String itemName,
+    required String reason,
+    required String authUsername,
+    required OrderItem orderItem,
+    required Function(int) onSuccess,
+  }) async {
+    final TextEditingController passwordController = TextEditingController();
+    bool obscurePassword = true;
 
-  await showDialog(
-    context: context,
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            backgroundColor: const Color(0xFF182022),
-            title: Text(
-              'Authenticate for $itemName',
-              style: const TextStyle(color: Colors.white),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-               Text(
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: const Color(0xFF182022),
+              title: Text(
+                'Authenticate for $itemName',
+                style: const TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
                     'Username: $authUsername',
                     style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Enter password for $authUsername',
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.grey.shade800,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.white54,
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: obscurePassword,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Enter password for $authUsername',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.grey.shade800,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          obscurePassword = !obscurePassword;
-                        });
-                      },
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.white54,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
+                ],
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF75E5E2),
-                  foregroundColor: const Color(0xFF0D1D20),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                 ),
-                onPressed: () async {
-                  final password = passwordController.text.trim();
-                  if (password.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a password'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF75E5E2),
+                    foregroundColor: const Color(0xFF0D1D20),
+                  ),
+                  onPressed: () async {
+                    final password = passwordController.text.trim();
+                    if (password.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a password'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
 
-                  // Verify credentials
-                  final connDetails = await DatabaseHelper.instance.getConnectionDetails();
-                  if (connDetails == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Connection details missing'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    Navigator.of(ctx).pop();
-                    return;
-                  }
+                    // Verify credentials
+                    final connDetails = await DatabaseHelper.instance
+                        .getConnectionDetails();
+                    if (connDetails == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Connection details missing'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      Navigator.of(ctx).pop();
+                      return;
+                    }
 
-                  // Connect to SQL Server and verify credentials
-                  try {
-                    await SqlConn.connect(
-                      ip: connDetails['ip'] as String,
-                      port: connDetails['port'] as String,
-                      databaseName: connDetails['dbName'] as String,
-                      username: connDetails['username'] as String,
-                      password: connDetails['password'] as String,
-                      timeout: 10,
-                    );
-
-                    // ✅ Modified query to validate any user
-                    final loginQuery =
-                        "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '${password.replaceAll("'", "''")}'";
-                    final loginResult = await SqlConn.readData(loginQuery);
-                    debugPrint("📝 Auth Query: $loginQuery");
-                    debugPrint("📤 Auth Result: $loginResult");
-
-                    if (jsonDecode(loginResult).isNotEmpty) {
-                      // Authentication successful, call insertItemLess
-                      final result = await insertItemLess(
-                        tabUniqueId: _tabUniqueId ?? '',
-                        quantity: orderItem.quantity,
-                        orderDetailId: orderItem.orderDetailId,
-                        username: _currentUser,
-                        authenticateUsername: authUsername,
-                        reason: reason,
-                        tiltId: (_finalTiltId ?? 0).toString(),
+                    // Connect to SQL Server and verify credentials
+                    try {
+                      await SqlConn.connect(
+                        ip: connDetails['ip'] as String,
+                        port: connDetails['port'] as String,
+                        databaseName: connDetails['dbName'] as String,
+                        username: connDetails['username'] as String,
+                        password: connDetails['password'] as String,
+                        timeout: 10,
                       );
 
-                      if (result > 0) {
-                        onSuccess(result);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Item reduced successfully, ID: $result'),
-                            backgroundColor: Colors.green,
-                          ),
+                      // ✅ Modified query to validate any user
+                      final loginQuery =
+                          "SELECT username FROM tbl_user WHERE username = '$authUsername' AND pwd = '${password.replaceAll("'", "''")}'";
+                      final loginResult = await SqlConn.readData(loginQuery);
+                      debugPrint("📝 Auth Query: $loginQuery");
+                      debugPrint("📤 Auth Result: $loginResult");
+
+                      if (jsonDecode(loginResult).isNotEmpty) {
+                        // Authentication successful, call insertItemLess
+                        final result = await insertItemLess(
+                          tabUniqueId: _tabUniqueId ?? '',
+                          quantity: orderItem.quantity,
+                          orderDetailId: orderItem.orderDetailId,
+                          username: _currentUser,
+                          authenticateUsername: authUsername,
+                          reason: reason,
+                          tiltId: (_finalTiltId ?? 0).toString(),
                         );
-                        Navigator.of(ctx).pop();
+
+                        if (result > 0) {
+                          onSuccess(result);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Item reduced successfully, ID: $result',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          Navigator.of(ctx).pop();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to reduce item'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Failed to reduce item'),
+                            content: Text('Invalid username or password'),
                             backgroundColor: Colors.red,
                           ),
                         );
                       }
-                    } else {
+                    } catch (e) {
+                      debugPrint('❌ Error during authentication: $e');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Invalid username or password'),
+                        SnackBar(
+                          content: Text('Authentication failed: $e'),
                           backgroundColor: Colors.red,
                         ),
                       );
+                    } finally {
+                      await SqlConn.disconnect();
+                      debugPrint('🛑 SQL Server connection closed');
                     }
-                  } catch (e) {
-                    debugPrint('❌ Error during authentication: $e');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Authentication failed: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  } finally {
-                    await SqlConn.disconnect();
-                    debugPrint('🛑 SQL Server connection closed');
-                  }
-                },
-                child: const Text('Authenticate'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
+                  },
+                  child: const Text('Authenticate'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _showCommentDialog(OrderItem item) async {
     final defaultText = item.comments.isNotEmpty
         ? item.comments
@@ -1130,7 +1184,8 @@ Future<void> _showAuthDialog({
       return;
     }
 
-    final isExistingOrder = widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
+    final isExistingOrder =
+        widget.tabUniqueId != null && widget.tabUniqueId!.isNotEmpty;
 
     setState(() {
       if (isExistingOrder) {
@@ -1181,9 +1236,12 @@ Future<void> _showAuthDialog({
                   double.tryParse(item['tax_percent']?.toString() ?? '5.0') ??
                   5.0,
               discountPercent:
-                  double.tryParse(item['discount_percent']?.toString() ?? '0') ??
+                  double.tryParse(
+                    item['discount_percent']?.toString() ?? '0',
+                  ) ??
                   0.0,
-              comments: item['Comments']?.toString() ?? 'Please prepare quickly!',
+              comments:
+                  item['Comments']?.toString() ?? 'Please prepare quickly!',
               orderDetailId: '0',
             ),
           );
@@ -1350,6 +1408,18 @@ Future<void> _showAuthDialog({
       return null;
     }
 
+    if (!LoaderUtils.hasConnection()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Cannot place order.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+
+    LoaderUtils.show(context, message: "Placing order...");
+
     // Filter out invalid items
     final validOrderItems = _activeOrderItems
         .where((item) => item.itemId != '0' && item.itemId.isNotEmpty)
@@ -1428,6 +1498,7 @@ Future<void> _showAuthDialog({
       }
 
       if (newOrderId != null && newOrderId > 0) {
+        LoaderUtils.hide();
         setState(() {
           _activeOrderItems.clear();
           _orderTotalAmount = 0.0;
@@ -1435,10 +1506,13 @@ Future<void> _showAuthDialog({
           _totalDiscount = 0.0;
         });
         _showSuccessDialog(newOrderId);
+      } else {
+        LoaderUtils.hide();
       }
 
       return newOrderId;
     } catch (e) {
+      LoaderUtils.hide();
       debugPrint('Error placing order: $e');
       ScaffoldMessenger.of(
         context,
@@ -1496,10 +1570,14 @@ Future<void> _showAuthDialog({
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => CashBillScreen(orderNo: orderId.toString(),
-                                                    tabUniqueId: _tabUniqueId ?? '',)),
-                                                    // CashBillScreen(orderNo: orderId.toString(),
-                                                    // tabUniqueId: _tabUniqueId ?? '',)),
+                  MaterialPageRoute(
+                    builder: (_) => CashBillScreen(
+                      orderNo: orderId.toString(),
+                      tabUniqueId: _tabUniqueId ?? '',
+                    ),
+                  ),
+                  // CashBillScreen(orderNo: orderId.toString(),
+                  // tabUniqueId: _tabUniqueId ?? '',)),
                 );
               },
               child: const Text("View Bill"),
@@ -1524,11 +1602,7 @@ Future<void> _showAuthDialog({
       body: Container(
         color: const Color(0xFF0D1D20),
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF75E5E2)),
-                ),
-              )
+            ? LoaderUtils.buildLoader(message: "Loading menu...")
             : LayoutBuilder(
                 builder: (context, constraints) {
                   return constraints.maxWidth > 600
@@ -1544,7 +1618,7 @@ Future<void> _showAuthDialog({
     return Row(
       children: [
         Expanded(
-          flex: 3,
+          flex: 4,
           child: Container(
             color: Colors.grey.shade900,
             padding: const EdgeInsets.all(16),
@@ -1650,10 +1724,10 @@ Future<void> _showAuthDialog({
                   child: GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                          crossAxisCount: 2,
                           crossAxisSpacing: 8.0,
                           mainAxisSpacing: 8.0,
-                          childAspectRatio: 1.2,
+                          childAspectRatio: 0.5,
                         ),
                     itemCount: _categoryItems[_selectedCategory]?.length ?? 0,
                     itemBuilder: (context, index) {
@@ -1675,8 +1749,44 @@ Future<void> _showAuthDialog({
                         ),
                         child: InkWell(
                           onTap: () => _addItemToOrder(item),
-                          onLongPress: () =>
-                              _showCommentDialog(OrderItem.fromMap(item)),
+                          onLongPress: () {
+                            final orderItem = OrderItem(
+                              itemId: item['id']?.toString() ?? '0',
+                              itemName: item['item_name'] ?? 'Unknown',
+                              salePrice:
+                                  double.tryParse(
+                                    item['sale_price']?.toString() ?? '0',
+                                  ) ??
+                                  0.0,
+                              quantity: 1,
+                              taxPercent:
+                                  double.tryParse(
+                                    item['tax_percent']?.toString() ?? '5.0',
+                                  ) ??
+                                  5.0,
+                              discountPercent:
+                                  double.tryParse(
+                                    item['discount_percent']?.toString() ?? '0',
+                                  ) ??
+                                  0.0,
+                              comments:
+                                  item['Comments']?.toString() ??
+                                  'Please prepare quickly!',
+                              orderDetailId: '0',
+                            );
+                            if (orderItem.itemId == '0' ||
+                                orderItem.itemId.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Cannot add comment: Invalid item ID',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            _showCommentDialog(orderItem);
+                          },
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Column(
@@ -1707,45 +1817,56 @@ Future<void> _showAuthDialog({
                                     fontFamily: 'Raleway',
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 18),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text(
-                                      'Tax:',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      ' ${baseTax.toStringAsFixed(1)}%',
-                                      style: const TextStyle(
-                                        color: Colors.lightGreen,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const Text(
-                                      ' | ',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    const Text(
-                                      'Disc:',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      ' ${baseDiscount.toStringAsFixed(1)}%',
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              'Tax:',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            Text(
+                                              ' ${baseTax.toStringAsFixed(1)}%',
+                                              style: const TextStyle(
+                                                color: Colors.lightGreen,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const Text(
+                                              ' | ',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            const Text(
+                                              'Disc:',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            Text(
+                                              ' ${baseDiscount.toStringAsFixed(1)}%',
+                                              style: const TextStyle(
+                                                color: Colors.orange,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -2113,6 +2234,11 @@ Future<void> _showAuthDialog({
                     subtotal * orderItem.discountPercent / 100;
                 final itemTotal = subtotal + taxAmount - discountAmount;
 
+                // Set color based on KOT status
+                final itemColor = orderItem.KotStatus == 1
+                    ? Colors.greenAccent
+                    : Colors.white;
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7.0),
                   child: Column(
@@ -2126,8 +2252,8 @@ Future<void> _showAuthDialog({
                               children: [
                                 Text(
                                   orderItem.itemName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: itemColor, // Apply conditional color
                                     fontWeight: FontWeight.w500,
                                     fontFamily: 'Raleway',
                                   ),
@@ -2135,8 +2261,10 @@ Future<void> _showAuthDialog({
                                 if (orderItem.comments.isNotEmpty)
                                   Text(
                                     orderItem.comments,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
+                                    style: TextStyle(
+                                      color: itemColor.withOpacity(
+                                        0.7,
+                                      ), // Adjust opacity for comments
                                       fontSize: 12,
                                       fontStyle: FontStyle.italic,
                                     ),
@@ -2148,8 +2276,8 @@ Future<void> _showAuthDialog({
                             flex: 2,
                             child: Text(
                               orderItem.salePrice.toStringAsFixed(2),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: itemColor,
                                 fontWeight: FontWeight.w500,
                                 fontFamily: 'Raleway',
                               ),
@@ -2186,8 +2314,8 @@ Future<void> _showAuthDialog({
                                   child: Text(
                                     orderItem.quantity.toString(),
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: itemColor,
                                       fontWeight: FontWeight.w500,
                                       fontFamily: 'Raleway',
                                     ),
@@ -2195,8 +2323,10 @@ Future<void> _showAuthDialog({
                                 ),
                                 const SizedBox(width: 4),
                                 InkWell(
-                                  onTap: () => _addItemToOrder(orderItem.toMap()),
-                                  onLongPress: () => _showCommentDialog(orderItem),
+                                  onTap: () =>
+                                      _addItemToOrder(orderItem.toMap()),
+                                  onLongPress: () =>
+                                      _showCommentDialog(orderItem),
                                   borderRadius: BorderRadius.circular(20),
                                   child: Container(
                                     padding: const EdgeInsets.all(3),
@@ -2221,8 +2351,8 @@ Future<void> _showAuthDialog({
                             flex: 2,
                             child: Text(
                               '${orderItem.discountPercent.toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: itemColor,
                                 fontWeight: FontWeight.w500,
                                 fontFamily: 'Raleway',
                               ),
@@ -2232,8 +2362,8 @@ Future<void> _showAuthDialog({
                             flex: 2,
                             child: Text(
                               taxAmount.toStringAsFixed(2),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: itemColor,
                                 fontWeight: FontWeight.w500,
                                 fontFamily: 'Raleway',
                               ),
@@ -2243,8 +2373,9 @@ Future<void> _showAuthDialog({
                             flex: 3,
                             child: Text(
                               itemTotal.toStringAsFixed(2),
-                              style: const TextStyle(
-                                color: Color(0xFF75E5E2),
+                              style: TextStyle(
+                                color:
+                                    itemColor, // Use same color for consistency
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Raleway',
                               ),

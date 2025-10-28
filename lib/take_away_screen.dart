@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mssql_connection/mssql_connection.dart';
 import 'package:sql_conn/sql_conn.dart';
-import 'package:start_app/custom_loader.dart';
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/bill_screen.dart';
 import 'package:intl/intl.dart';
@@ -1933,152 +1932,191 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
             child: _buildOrderListWithDetails(),
           ),
         ),
-        Expanded(
-          flex: 2,
-          child: Column(
-            children: [
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected = _selectedCategory == category['category_name'];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: ActionChip(
-                        label: Text(category['category_name']),
-                        backgroundColor: isSelected ? const Color(0xFF75E5E2) : Colors.grey.shade800,
-                        labelStyle: TextStyle(
-                          color: isSelected ? const Color(0xFF0D1D20) : Colors.white,
-                          fontFamily: 'Raleway',
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _selectedCategory = category['category_name'] as String;
-                          });
-                        },
-                      ),
-                    );
-                  },
+       Expanded(
+  flex: 2,
+  child: Column(
+    children: [
+      SizedBox(
+        height: 50,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: _categories.length,
+          itemBuilder: (context, index) {
+            final category = _categories[index];
+            final isSelected = _selectedCategory == category['category_name'];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: ActionChip(
+                label: Text(category['category_name']),
+                backgroundColor:
+                    isSelected ? const Color(0xFF75E5E2) : Colors.grey.shade800,
+                labelStyle: TextStyle(
+                  color: isSelected ? const Color(0xFF0D1D20) : Colors.white,
+                  fontFamily: 'Raleway',
                 ),
+                onPressed: () {
+                  setState(() {
+                    _selectedCategory =
+                        category['category_name'] as String;
+                  });
+                },
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: _selectedCategory != null && _categoryItems[_selectedCategory] != null
-                      ? GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 8.0,
-                            mainAxisSpacing: 8.0,
-                            childAspectRatio: 1.1,
-                          ),
-                          itemCount: _categoryItems[_selectedCategory]?.length ?? 0,
-                          itemBuilder: (context, index) {
-                            final items = _categoryItems[_selectedCategory] ?? [];
-                            final item = items[index];
-                            return Card(
-                              child: InkWell(
-                                onTap: () => _addItemToOrder(item),
-                                onLongPress: () => _showCommentDialog(OrderItem.fromMap(item)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.local_dining,
-                                        color: Color(0xFF75E5E2),
-                                        size: 40,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        item['item_name'],
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'Raleway',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        ' ${item['sale_price'].toStringAsFixed(2)}',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 14,
-                                          fontFamily: 'Raleway',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Text(
-                                            'Tax:',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                              fontFamily: 'Raleway',
-                                            ),
-                                          ),
-                                          Text(
-                                            ' ${(OrderConstants.taxRate * 100).toStringAsFixed(1)}%',
-                                            style: const TextStyle(
-                                              color: Colors.lightGreen,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              fontFamily: 'Raleway',
-                                            ),
-                                          ),
-                                          const Text(
-                                            ' | ',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                              fontFamily: 'Raleway',
-                                            ),
-                                          ),
-                                          const Text(
-                                            'Disc:',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                              fontFamily: 'Raleway',
-                                            ),
-                                          ),
-                                          Text(
-                                            ' ${(OrderConstants.discountRate * 100).toStringAsFixed(1)}%',
-                                            style: const TextStyle(
-                                              color: Colors.orange,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              fontFamily: 'Raleway',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : const Center(
-                          child: Text(
-                            'No items available',
-                            style: TextStyle(color: Colors.white70, fontFamily: 'Raleway'),
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
+      ),
+
+      // 🔹 Items Grid
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: _selectedCategory != null &&
+                  _categoryItems[_selectedCategory] != null
+              ? GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount:
+                        MediaQuery.of(context).orientation ==
+                                Orientation.portrait
+                            ? 2
+                            : 4,
+                    crossAxisSpacing: 8.0,
+                    mainAxisSpacing: 8.0,
+                    childAspectRatio:
+                        MediaQuery.of(context).orientation ==
+                                Orientation.portrait
+                            ? 0.95
+                            : 1.2,
+                  ),
+                  itemCount:
+                      _categoryItems[_selectedCategory]?.length ?? 0,
+                  itemBuilder: (context, index) {
+                    final items = _categoryItems[_selectedCategory] ?? [];
+                    final item = items[index];
+
+                   return Card(
+  color: Colors.grey.shade900,
+  elevation: 4,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: InkWell(
+    onTap: () => _addItemToOrder(item),
+    onLongPress: () => _showCommentDialog(OrderItem.fromMap(item)),
+    child: Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, // ✅ IMPORTANT FIX
+        children: [
+          const Flexible(
+            flex: 2,
+            child: Icon(
+              Icons.local_dining,
+              color: Color(0xFF75E5E2),
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Flexible(
+            flex: 2,
+            child: Text(
+              item['item_name'],
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Raleway',
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Flexible(
+            child: Text(
+              '${item['sale_price'].toStringAsFixed(2)}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFamily: 'Raleway',
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+
+          // ✅ Safe Row inside Flexible
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Tax:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                  Text(
+                    ' ${(OrderConstants.taxRate * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: Colors.lightGreen,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                  const Text(
+                    ' | ',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                  const Text(
+                    'Disc:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                  Text(
+                    ' ${(OrderConstants.discountRate * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Raleway',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+                  },
+                )
+              : const Center(
+                  child: Text(
+                    'No items available',
+                    style: TextStyle(
+                        color: Colors.white70, fontFamily: 'Raleway'),
+                  ),
+                ),
+        ),
+      ),
+    ],
+  ),
+),
       ],
     );
   }
@@ -2110,7 +2148,7 @@ class _TakeAwayScreenState extends State<TakeAwayScreen> with TickerProviderStat
                           crossAxisCount: 2,
                           crossAxisSpacing: 8.0,
                           mainAxisSpacing: 8.0,
-                          childAspectRatio: 0.8,
+                          childAspectRatio: 1.2,
                         ),
                         itemCount: items.length,
                         itemBuilder: (context, index) {

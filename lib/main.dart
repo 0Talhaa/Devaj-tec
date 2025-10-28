@@ -9,7 +9,10 @@ import 'package:sql_conn/sql_conn.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:start_app/login_screen.dart';
 import 'package:start_app/onboarding_screen.dart'; 
-import 'package:start_app/database_halper.dart'; 
+import 'package:start_app/database_halper.dart';
+import 'package:start_app/custom_app_loader.dart';
+import 'package:start_app/connectivity_service.dart';
+import 'package:start_app/loader_utils.dart'; 
 
 
 
@@ -41,14 +44,35 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
 void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const MyApp());}
 
 
-class MyApp extends StatelessWidget {const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ConnectivityService.instance.initialize(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    ConnectivityService.instance.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DEVAJ TEC',
       debugShowCheckedModeBanner: false,
       theme: _buildAppTheme(),
-      home: const StartupScreen(), // First screen
+      home: const StartupScreen(),
     );
   }
 
@@ -168,15 +192,8 @@ class _StartupScreenState extends State<StartupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        // Animation using kPrimaryColor
-        child: CircularProgressIndicator(
-          valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
-          backgroundColor: kSecondaryColor.withOpacity(0.3),
-          strokeWidth: 4,
-        ).animate().scale(delay: 500.ms, duration: 800.ms),
-      ),
+    return const Scaffold(
+      body: AppLoader(message: "Initializing..."),
     );
   }
 }
@@ -374,6 +391,16 @@ class _ConnectionFormState extends State<ConnectionForm>
           content: Text('Please fill all fields and select a Tilt.'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!LoaderUtils.hasConnection()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Please check your network.'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -681,11 +708,9 @@ class _ConnectionFormState extends State<ConnectionForm>
             future: _tiltsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10.0),
-                    child: CircularProgressIndicator(color: kPrimaryColor),
-                  ),
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10.0),
+                  child: AppLoader(size: 30, message: "Loading Tilts..."),
                 );
               }
 

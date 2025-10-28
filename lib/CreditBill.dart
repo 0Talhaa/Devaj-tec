@@ -4,27 +4,25 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sql_conn/sql_conn.dart';
-import 'package:start_app/custom_loader.dart' show kTertiaryColor;
 import 'package:start_app/database_halper.dart';
-import 'package:start_app/main.dart' show kPrimaryColor, kTertiaryColor;
+import 'package:start_app/main.dart';
 import 'package:start_app/running_orders_page.dart';
 
-
-class CreditBillScreen extends StatefulWidget {
+class CashBillScreen extends StatefulWidget {
   final String orderNo;
   final String tabUniqueId;
-
-  const CreditBillScreen({
-    super.key,
-    required this.orderNo,
+  
+  const CashBillScreen({
+    super.key, 
+    required this.orderNo, 
     required this.tabUniqueId,
   });
 
   @override
-  State<CreditBillScreen> createState() => _CreditBillScreenState();
+  State<CashBillScreen> createState() => _CashBillScreenState();
 }
 
-class _CreditBillScreenState extends State<CreditBillScreen> {
+class _CashBillScreenState extends State<CashBillScreen> {
   Map<String, dynamic>? orderDetails;
   List<Map<String, dynamic>> orderItems = [];
   bool isLoading = true;
@@ -100,11 +98,11 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
               itemJson['Item Name'] != null &&
               itemJson['Price'] != null &&
               itemJson['Tax'] != null) {
-            final price = (itemJson['Price'] is num)
-                ? itemJson['Price'].toDouble()
+            final price = (itemJson['Price'] is num) 
+                ? itemJson['Price'].toDouble() 
                 : double.tryParse(itemJson['Price'].toString()) ?? 0.0;
-            final qty = (itemJson['Qty'] is num)
-                ? itemJson['Qty'].toDouble()
+            final qty = (itemJson['Qty'] is num) 
+                ? itemJson['Qty'].toDouble() 
                 : double.tryParse(itemJson['Qty'].toString()) ?? 0.0;
             if (price > 0 && price < 100000 && qty > 0 && qty < 100) {
               items.add(item);
@@ -143,7 +141,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
           databaseName: conn['dbName'],
           username: conn['username'],
           password: conn['password'],
-          timeout: 30, // Increased timeout to handle potential Socket closed errors
+          timeout: 10,
         );
       }
 
@@ -152,7 +150,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
 
       final fixedJsonResult = _escapeJsonValue(jsonResult);
       final outerJson = jsonDecode(fixedJsonResult) as List<dynamic>;
-
+      
       if (outerJson.isEmpty) {
         setState(() {
           isLoading = false;
@@ -175,8 +173,8 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
       final List<Map<String, dynamic>> items = [];
       if (jsonData['OrderDetails'] is List) {
         for (var item in jsonData['OrderDetails']) {
-          if (item['Qty'] != null &&
-              item['Item Name'] != null &&
+          if (item['Qty'] != null && 
+              item['Item Name'] != null && 
               item['Price'] != null) {
             final price = _safeNum(item, 'Price');
             final qty = _safeNum(item, 'Qty');
@@ -196,13 +194,10 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
       }
 
       final itemsSubTotal = items.fold<double>(
-        0.0,
-        (sum, item) => sum + (_safeNum(item, 'Qty') * _safeNum(item, 'Price')),
+        0.0, 
+        (sum, item) => sum + (_safeNum(item, 'Qty') * _safeNum(item, 'Price'))
       );
-      // Use NetBillCard for credit bill total, fallback to Total if not available
-      final jsonTotal = _safeNum(jsonData, 'NetBillCard') > 0
-          ? _safeNum(jsonData, 'NetBillCard')
-          : _safeNum(jsonData, 'Total');
+      final jsonTotal = _safeNum(jsonData, 'Total');
 
       if (items.isNotEmpty || jsonTotal > 0) {
         setState(() {
@@ -215,9 +210,6 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
             'OrderTime': '${_safeString(jsonData, 'OrderTime')} ${_safeString(jsonData, 'OrderDate')}',
             'TotalAmount': jsonTotal,
             'SubTotal': itemsSubTotal,
-            'CardTax': _safeNum(jsonData, 'CardTax'), // Added for credit bill
-            'SCharges': _safeNum(jsonData, 'SCharges'),
-            'Discount': _safeNum(jsonData, 'Discount'),
           };
           orderItems = items;
           isLoading = false;
@@ -229,7 +221,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     } catch (e) {
       setState(() {
         isLoading = false;
-        errorMessage = 'Error fetching data: $e';
+        errorMessage = 'Error fetching data. Please try again.';
       });
       await _fetchFromTables();
     } finally {
@@ -251,7 +243,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No bill data to print'),
+            content: Text('No bill data to print'), 
             backgroundColor: Colors.red,
           ),
         );
@@ -262,7 +254,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     final buffer = StringBuffer();
     buffer.writeln('┌──────────────────────────────┐');
     buffer.writeln('│      Dilpasand Sweet         │');
-    buffer.writeln('│        Credit Bill           │');
+    buffer.writeln('│         Cash Bill            │');
     buffer.writeln('└──────────────────────────────┘');
     buffer.writeln('Order No: ${_safeString(orderDetails, 'OrderNo')}');
     buffer.writeln('Table: ${_safeString(orderDetails, 'TableNo')} | Covers: ${_safeString(orderDetails, 'Covers')}');
@@ -272,7 +264,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     buffer.writeln('─' * 30);
     buffer.writeln('Item'.padRight(16) + 'Qty'.padLeft(5) + 'Price'.padLeft(8) + 'Total'.padLeft(8));
     buffer.writeln('─' * 30);
-
+    
     for (var item in orderItems) {
       final qty = _safeNum(item, 'Qty');
       final price = _safeNum(item, 'Price');
@@ -285,25 +277,16 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
         buffer.writeln('  └─ ${_safeString(item, 'Comments')}');
       }
     }
-
+    
     buffer.writeln('─' * 30);
-    final subTotal = _safeNum(orderDetails, 'SubTotal');
-    final cardTax = _safeNum(orderDetails, 'CardTax');
-    final sCharges = _safeNum(orderDetails, 'SCharges');
-    final discount = _safeNum(orderDetails, 'Discount');
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
-
-    buffer.writeln('Sub Total: ${numberFormatter.format(subTotal)}'.padLeft(30));
-    if (cardTax > 0) {
-      buffer.writeln('Card Tax: ${numberFormatter.format(cardTax)}'.padLeft(30));
-    }
-    if (sCharges > 0) {
-      buffer.writeln('Service Charges: ${numberFormatter.format(sCharges)}'.padLeft(30));
-    }
-    if (discount > 0) {
-      buffer.writeln('Discount: -${numberFormatter.format(discount)}'.padLeft(30));
-    }
-    buffer.writeln('Grand Total: ${numberFormatter.format(grandTotal)}'.padLeft(30));
+    final totalTax = orderItems.fold<double>(0.0, (sum, item) {
+      final qty = _safeNum(item, 'Qty');
+      final price = _safeNum(item, 'Price');
+      final taxPercent = _safeNum(item, 'tax');
+      return sum + (qty * price * taxPercent / 100);
+    });
+    buffer.writeln('Tax: ${numberFormatter.format(totalTax)}'.padLeft(30));
+    buffer.writeln('Grand Total: ${numberFormatter.format(_safeNum(orderDetails, 'TotalAmount'))}'.padLeft(30));
     buffer.writeln('┌──────────────────────────────┐');
     buffer.writeln('│   Thank You for Your Visit!   │');
     buffer.writeln('└──────────────────────────────┘');
@@ -311,7 +294,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bill sent to printer'),
+          content: Text('Bill sent to printer'), 
           backgroundColor: Colors.green,
         ),
       );
@@ -356,13 +339,13 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     return Scaffold(
       backgroundColor: kTertiaryColor,
       appBar: AppBar(
-        title: const Text('Credit Bill', style: TextStyle(fontFamily: 'Raleway')),
+        title: const Text('Cash Bill', style: TextStyle(fontFamily: 'Raleway')),
         backgroundColor: kTertiaryColor,
         foregroundColor: kPrimaryColor,
         elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: _navigateToRunningOrders,
+          onPressed: () => _navigateToRunningOrders(),
         ),
       ),
       body: Center(
@@ -392,9 +375,9 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
                   foregroundColor: kTertiaryColor,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Raleway',
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold, 
+                    fontFamily: 'Raleway'
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -448,9 +431,9 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
                   foregroundColor: kTertiaryColor,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Raleway',
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold, 
+                    fontFamily: 'Raleway'
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -464,155 +447,160 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     );
   }
 
-  Widget _buildBillScreen() {
-    final orderNo = _safeString(orderDetails, 'OrderNo');
-    final tableNo = _safeString(orderDetails, 'TableNo');
-    final covers = _safeString(orderDetails, 'Covers');
-    final waiterName = _safeString(orderDetails, 'waiter_name');
-    final orderType = _safeString(orderDetails, 'OrderType');
-    final orderTime = _safeString(orderDetails, 'OrderTime');
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
+Widget _buildBillScreen() {
+  final orderNo = _safeString(orderDetails, 'OrderNo');
+  final tableNo = _safeString(orderDetails, 'TableNo');
+  final covers = _safeString(orderDetails, 'Covers');
+  final waiterName = _safeString(orderDetails, 'waiter_name');
+  final orderType = _safeString(orderDetails, 'OrderType');
+  final orderTime = _safeString(orderDetails, 'OrderTime');
+  final grandTotal = _safeNum(orderDetails, 'TotalAmount');
 
-    return Scaffold(
-      backgroundColor: kTertiaryColor,
-      appBar: AppBar(
-        title: const Text(
-          'Credit Bill',
-          style: TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: kTertiaryColor,
-        foregroundColor: kPrimaryColor,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-          tooltip: 'Back',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print, color: Colors.white),
-            onPressed: _printBill,
-            tooltip: 'Quick Print',
-          ),
-        ],
+  return Scaffold(
+    backgroundColor: kTertiaryColor,
+    appBar: AppBar(
+      title: const Text(
+        'Cash Bill',
+        style: TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.w600),
       ),
-      body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: ListView(
-                      children: [
-                        _buildHeader(),
-                        const SizedBox(height: 20),
-                        _buildDetailsRow('Order No.', orderNo),
-                        _buildDetailsRow('Table/Covers', '$tableNo / $covers'),
-                        _buildDetailsRow('Waiter', waiterName),
-                        _buildDetailsRow('Order Type', orderType),
-                        _buildDetailsRow('Time', orderTime),
-                        const Divider(height: 30, thickness: 1, color: Colors.grey),
-                        _buildItemsTable(),
-                        const SizedBox(height: 80),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Container(
+      backgroundColor: kTertiaryColor,
+      foregroundColor: kPrimaryColor,
+      elevation: 1,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+        tooltip: 'Back',
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.print, color: Colors.white),
+          onPressed: _printBill,
+          tooltip: 'Quick Print',
+        ),
+      ],
+    ),
+
+    body: SafeArea(
+      child: Container(
+        width: double.infinity, // ✅ Full width
+        height: double.infinity, // ✅ Full height
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // ✅ Scrollable content area
+            Expanded(
+              child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withOpacity(0.1),
                       blurRadius: 6,
-                      offset: const Offset(0, -2),
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTaxAndTotalSection(),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _printBill,
-                            icon: const Icon(Icons.print),
-                            label: const Text('Print Bill'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kPrimaryColor,
-                              foregroundColor: kTertiaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Raleway',
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _confirmPayment(grandTotal),
-                            icon: const Icon(Icons.payment),
-                            label: Text(
-                              'Pay ${numberFormatter.format(grandTotal)}',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kPrimaryColor,
-                              foregroundColor: kTertiaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Raleway',
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView(
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 20),
+                      _buildDetailsRow('Order No.', orderNo),
+                      _buildDetailsRow('Table/Covers', '$tableNo / $covers'),
+                      _buildDetailsRow('Waiter', waiterName),
+                      _buildDetailsRow('Order Type', orderType),
+                      _buildDetailsRow('Time', orderTime),
+                      const Divider(height: 30, thickness: 1, color: Colors.grey),
+                      _buildItemsTable(),
+                      const SizedBox(height: 80), // Space above fixed total
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // ✅ Fixed Sub Total section at bottom
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTaxAndTotalSection(),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _printBill,
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print Bill'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: kTertiaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Raleway',
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _confirmPayment(grandTotal),
+                          icon: const Icon(Icons.payment),
+                          label: Text(
+                            'Pay ${numberFormatter.format(grandTotal)}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: kTertiaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Raleway',
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   void _navigateToRunningOrders() {
     Navigator.pushReplacement(
@@ -624,7 +612,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
   void _confirmPayment(double amount) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Credit Payment Confirmed! Bill Closed.'),
+        content: const Text('Payment Confirmed! Bill Closed.'),
         backgroundColor: Colors.green,
       ),
     );
@@ -646,11 +634,11 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
           semanticsLabel: 'Dilpasand Sweet',
         ),
         Text(
-          'Credit Bill',
+          'Cash Bill',
           style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[600],
-            fontFamily: 'Raleway',
+            fontSize: 16, 
+            color: Colors.grey[600], 
+            fontFamily: 'Raleway'
           ),
         ),
       ],
@@ -685,24 +673,31 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
     );
   }
 
-  Widget _buildTaxAndTotalSection() {
-    final subTotal = _safeNum(orderDetails, 'SubTotal');
-    final cardTax = _safeNum(orderDetails, 'CardTax');
-    final sCharges = _safeNum(orderDetails, 'SCharges');
-    final discount = _safeNum(orderDetails, 'Discount');
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
+Widget _buildTaxAndTotalSection() {
+  final itemsSubTotal = orderItems.fold<double>(0.0, (sum, item) {
+    final qty = _safeNum(item, 'Qty');
+    final price = _safeNum(item, 'Price');
+    return sum + (qty * price);
+  });
+  
+  final totalTax = orderItems.fold<double>(0.0, (sum, item) {
+    final qty = _safeNum(item, 'Qty');
+    final price = _safeNum(item, 'Price');
+    final taxPercent = _safeNum(item, 'tax');
+    return sum + (qty * price * taxPercent / 100);
+  });
+  
+  final grandTotal = _safeNum(orderDetails, 'TotalAmount');
 
-    return Column(
-      children: [
-        _buildTotalRow('Sub Total', subTotal),
-        if (cardTax > 0) _buildTotalRow('Card Tax', cardTax),
-        if (sCharges > 0) _buildTotalRow('Service Charges', sCharges),
-        if (discount > 0) _buildTotalRow('Discount', -discount),
-        const Divider(height: 20, thickness: 1, color: Colors.grey),
-        _buildTotalRow('Grand Total', grandTotal, isBold: true),
-      ],
-    );
-  }
+  return Column(
+    children: [
+      _buildTotalRow('Sub Total', itemsSubTotal),
+      _buildTotalRow('Tax', totalTax),
+      const Divider(height: 20, thickness: 1, color: Colors.grey),
+      _buildTotalRow('Grand Total', grandTotal, isBold: true),
+    ],
+  );
+}
 
   Widget _buildTotalRow(String label, double amount, {bool isBold = false}) {
     return Padding(
@@ -740,35 +735,35 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
         const Row(
           children: [
             Expanded(
-              flex: 3,
+              flex: 3, 
               child: Text(
-                'Item',
-                style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Raleway'),
-              ),
+                'Item', 
+                style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Raleway')
+              )
             ),
             Expanded(
-              flex: 1,
+              flex: 1, 
               child: Text(
-                'Qty',
+                'Qty', 
                 style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Raleway'),
-                textAlign: TextAlign.right,
-              ),
+                textAlign: TextAlign.right
+              )
             ),
             Expanded(
-              flex: 2,
+              flex: 2, 
               child: Text(
-                'Price',
+                'Price', 
                 style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Raleway'),
-                textAlign: TextAlign.right,
-              ),
+                textAlign: TextAlign.right
+              )
             ),
             Expanded(
-              flex: 2,
+              flex: 2, 
               child: Text(
-                'Total',
+                'Total', 
                 style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Raleway'),
-                textAlign: TextAlign.right,
-              ),
+                textAlign: TextAlign.right
+              )
             ),
           ],
         ),
@@ -817,9 +812,9 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
                     child: Text(
                       numberFormatter.format(total),
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Raleway',
-                        fontSize: 14,
+                        fontWeight: FontWeight.bold, 
+                        fontFamily: 'Raleway', 
+                        fontSize: 14
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -841,7 +836,7 @@ class _CreditBillScreenState extends State<CreditBillScreen> {
                     maxLines: 2,
                   ),
                 ),
-              if (index < orderItems.length - 1)
+              if (index < orderItems.length - 1) 
                 const Divider(height: 10, thickness: 0.5, color: Colors.grey),
             ],
           );

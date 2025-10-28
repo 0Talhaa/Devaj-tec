@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sql_conn/sql_conn.dart';
-import 'package:start_app/CreditBill.dart';
-import 'package:start_app/custom_loader.dart' as Loader;
+import 'package:start_app/CreditBill.dart' as credit;
 import 'package:start_app/database_halper.dart';
 import 'package:start_app/cash_bill_screen.dart';
 import 'package:start_app/order_screen.dart';
+import 'package:start_app/custom_app_loader.dart';
+import 'package:start_app/loader_utils.dart';
 import 'edit_order_screen.dart';
 
 class RunningOrdersPage extends StatefulWidget {
@@ -60,6 +61,14 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
 
   // 🟩 Fetch Orders
   Future<void> _fetchOrders() async {
+    if (!LoaderUtils.hasConnection()) {
+      setState(() {
+        _error = "No internet connection. Please check your network.";
+        _loading = false;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -99,6 +108,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
 
   // 🟩 Navigate to Edit Screen
   Future<void> _navigateToEditScreen(Map<String, dynamic> order) async {
+    AppLoaderOverlay.show(context, message: 'Opening order...');
     try {
       final String tabUniqueId = order["tab_unique_id"] ?? "";
       final String tableName = order["table_no"] ?? "N/A";
@@ -108,6 +118,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
           int.tryParse(order["tilt_id"] ?? "") ?? null;
       final String waiterName = order["waiter"] ?? "Admin";
 
+      AppLoaderOverlay.hide();
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -122,6 +133,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
         ),
       );
     } catch (e) {
+      AppLoaderOverlay.hide();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("❌ Edit navigation error: $e")),
       );
@@ -151,9 +163,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
           ),
         ),
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF75E5E2)),
-              )
+            ? const AppLoader(message: 'Loading orders...')
             : _error != null
                 ? Center(
                     child: Text(
@@ -270,7 +280,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (context) => CreditBillScreen(
+                                                    builder: (context) => credit.CashBillScreen(
                                                       orderNo: orderNo,
                                                       tabUniqueId: tabUniqueId,
                                                     ),
