@@ -275,7 +275,9 @@ setState(() {
       return sum + (qty * price * taxPercent / 100);
     });
     buffer.writeln('Tax: ${numberFormatter.format(totalTax)}'.padLeft(30));
-    buffer.writeln('Grand Total: ${numberFormatter.format(_safeNum(orderDetails, 'TotalAmount'))}'.padLeft(30));
+    final printTotal = netBillCash > 0 ? netBillCash : (netBillCard > 0 ? netBillCard : total);
+    buffer.writeln('Grand Total: ${numberFormatter.format(printTotal)}'.padLeft(30));
+
     buffer.writeln('┌──────────────────────────────┐');
     buffer.writeln('│   Thank You for Your Visit!   │');
     buffer.writeln('└──────────────────────────────┘');
@@ -416,7 +418,8 @@ setState(() {
     final waiterName = _safeString(orderDetails, 'waiter_name');
     final orderType = _safeString(orderDetails, 'OrderType');
     final orderTime = _safeString(orderDetails, 'OrderTime');
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
+    final grandTotal = netBillCash > 0 ? netBillCash : (netBillCard > 0 ? netBillCard : total);
+
 
     return Scaffold(
       backgroundColor: kTertiaryColor,               // Dark teal screen background
@@ -597,7 +600,8 @@ setState(() {
       final taxPct = _safeNum(i, 'tax');
       return s + (qty * price * taxPct / 100);
     });
-    final grandTotal = _safeNum(orderDetails, 'TotalAmount');
+        final grandTotal = netBillCash > 0 ? netBillCash : (netBillCard > 0 ? netBillCard : total);
+
 
     return Column(
       children: [
@@ -689,3 +693,4 @@ setState(() {
     );
   }
 }
+//The all code push 

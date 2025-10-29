@@ -280,7 +280,7 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (context) => credit.CashBillScreen(
+                                                    builder: (context) => credit.CreditBillScreen(
                                                       orderNo: orderNo,
                                                       tabUniqueId: tabUniqueId,
                                                     ),
