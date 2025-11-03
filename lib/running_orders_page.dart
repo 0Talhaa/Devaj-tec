@@ -77,7 +77,11 @@ class _RunningOrdersPageState extends State<RunningOrdersPage> {
     try {
       if (!await _ensureConnection()) return;
 
-      const query = "EXEC uspGetOrderList";
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
+      final query = "EXEC $dbName.dbo.uspGetOrderList";
       final result = await SqlConn.readData(query);
 
       // Safe decode

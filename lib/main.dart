@@ -360,8 +360,12 @@ class _ConnectionFormState extends State<ConnectionForm>
         );
       }
 
+      // Get database name from SQLite (if available)
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final currentDbName = savedDbName ?? dbName; // Use current dbName if no saved name
+      
       // Query for Tilt table
-      const query = "SELECT id, TilitName FROM Tilt"; // Note: Typo in column name? 'TilitName' -> 'TiltName'?
+      final query = "SELECT id, TilitName FROM $currentDbName.dbo.Tilt"; // Note: Typo in column name? 'TilitName' -> 'TiltName'?
       final result = await SqlConn.readData(query);
       debugPrint("📥 _fetchTilts: Raw result: $result");
 
@@ -427,7 +431,10 @@ class _ConnectionFormState extends State<ConnectionForm>
       final deviceInfo = await DeviceHelper.getDeviceInfo(); // Removed context dependency
       final deviceName = deviceInfo["DeviceName"] ?? "Unknown Device";
 
-      // Step 3: Save details including deviceName
+      // Step 3: Save database name separately in SQLite
+      await DatabaseHelper.instance.saveDatabaseName(_dbNameController.text);
+      
+      // Step 4: Save details including deviceName
       await DatabaseHelper.instance.saveConnectionDetails(
         ip: _ipController.text,
         serverName: 'Your_Default_Server_Name', // Consider making this configurable

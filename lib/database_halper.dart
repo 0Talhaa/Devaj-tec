@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10, // Incremented version to remove default connection details
+      version: 11, // Incremented version for database config table
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -96,6 +96,14 @@ class DatabaseHelper {
         username TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE tbl_database_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        database_name TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
     // Removed default connection details insertion
   }
 
@@ -146,6 +154,16 @@ class DatabaseHelper {
     if (oldVersion < 10) {
       // Clear any existing default connection details to enforce manual input
       await db.delete('tbl_connection_details');
+    }
+
+    if (oldVersion < 11) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS tbl_database_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          database_name TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 
@@ -214,7 +232,11 @@ class DatabaseHelper {
         );
       }
 
-      final query = "SELECT status FROM postransectionsetting WHERE type = '$type'";
+      // Get database name from SQLite
+      final savedDbName = await getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
+      final query = "SELECT status FROM $dbName.dbo.postransectionsetting WHERE type = '$type'";
       final result = await SqlConn.readData(query);
       debugPrint("📝 SQL Query for $type: $query");
       debugPrint("📤 SQL Result for $type: $result");
@@ -292,7 +314,11 @@ class DatabaseHelper {
         );
       }
 
-      final query = "SELECT status FROM postransectionsetting WHERE type = '$type'";
+      // Get database name from SQLite
+      final savedDbName = await getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
+      final query = "SELECT status FROM $dbName.dbo.postransectionsetting WHERE type = '$type'";
       final result = await SqlConn.readData(query);
       debugPrint("📝 SQL Query for $type: $query");
       debugPrint("📤 SQL Result for $type: $result");
@@ -453,6 +479,30 @@ class DatabaseHelper {
       debugPrint('❌ Error executing query: $e');
       return [];
     }
+  }
+
+  // Save database name
+  Future<void> saveDatabaseName(String databaseName) async {
+    final db = await database;
+    await db.delete('tbl_database_config'); // Clear previous entries
+    await db.insert('tbl_database_config', {
+      'database_name': databaseName,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    debugPrint('🟢 Database name saved: $databaseName');
+  }
+
+  // Get saved database name
+  Future<String?> getSavedDatabaseName() async {
+    final db = await database;
+    final result = await db.query('tbl_database_config', limit: 1);
+    if (result.isNotEmpty) {
+      final dbName = result.first['database_name'] as String;
+      debugPrint('📥 Retrieved database name: $dbName');
+      return dbName;
+    }
+    debugPrint('⚠️ No database name found');
+    return null;
   }
 
   // Close database

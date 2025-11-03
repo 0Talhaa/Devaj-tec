@@ -113,8 +113,12 @@ class _CashBillScreenState extends State<CashBillScreen> {
   /// Fetch JSON Bill Data from SQL
   Future<void> _fetchBillData() async {
     try {
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
       final jsonQuery = """
-        SELECT JSON FROM dine_in_orderjson 
+        SELECT JSON FROM $dbName.dbo.dine_in_orderjson 
         WHERE Tab_Unique_Id = '${widget.tabUniqueId}'
       """;
 

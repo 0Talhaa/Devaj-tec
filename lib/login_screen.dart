@@ -91,7 +91,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         timeout: 10, // Added timeout for better error handling
       );
 
-      const query = "SELECT username FROM tbl_user";
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
+      final query = "SELECT username FROM $dbName.dbo.tbl_user";
       final result = await SqlConn.readData(query);
       final parsedResult = jsonDecode(result) as List<dynamic>;
       final users = parsedResult
@@ -162,9 +166,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         timeout: 10, // Added timeout
       );
 
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
       // Use formatted query
       final loginQuery =
-          "SELECT username FROM tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
+          "SELECT username FROM $dbName.dbo.tbl_user WHERE username = '$_selectedUser' AND pwd = '${_passwordController.text}'";
       final loginResult = await SqlConn.readData(loginQuery);
 
       if (jsonDecode(loginResult).isNotEmpty) {
@@ -229,8 +237,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       final itemsEmpty = await DatabaseHelper.instance.isItemsTableEmpty();
 
       if (categoriesEmpty || itemsEmpty) {
+        // Get database name from SQLite
+        final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+        final dbName = savedDbName ?? 'HNFOODMULTAN_';
+        
         // Fetch categories
-        const categoryQuery = "SELECT id, category_name FROM CategoryPOS";
+        final categoryQuery = "SELECT id, category_name FROM $dbName.dbo.CategoryPOS";
         final categoryResult = await SqlConn.readData(categoryQuery);
         final categories = (jsonDecode(categoryResult) as List<dynamic>)
             .cast<Map<String, dynamic>>();
@@ -238,10 +250,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         print('🟢 Saved ${categories.length} categories locally');
 
         // Fetch items with join
-        const itemQuery = """
+        final itemQuery = """
           SELECT i.id, i.item_name, i.sale_price, i.codes, c.category_name, c.is_tax_apply
-          FROM itempos i
-          LEFT JOIN CategoryPOS c ON i.category_name = c.category_name
+          FROM $dbName.dbo.itempos i
+          LEFT JOIN $dbName.dbo.CategoryPOS c ON i.category_name = c.category_name
           WHERE i.status = '1'
         """;
         final itemResult = await SqlConn.readData(itemQuery);

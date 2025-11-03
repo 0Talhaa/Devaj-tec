@@ -66,8 +66,12 @@ class _TablesPageState extends State<TablesPage> {
         password: _connectionDetails!['password'] as String,
       );
 
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
       final masterTableQuery =
-          "SELECT Mtbl_Id, PTable FROM HNFOODMULTAN_.dbo.MasterTable";
+          "SELECT Mtbl_Id, PTable FROM $dbName.dbo.MasterTable";
       final masterTableResult = await SqlConn.readData(masterTableQuery);
 
       final parsedResult = jsonDecode(masterTableResult) as List<dynamic>;
@@ -119,9 +123,13 @@ class _TablesPageState extends State<TablesPage> {
         password: _connectionDetails!['password'] as String,
       );
 
+      // Get database name from SQLite
+      final savedDbName = await DatabaseHelper.instance.getSavedDatabaseName();
+      final dbName = savedDbName ?? 'HNFOODMULTAN_';
+      
       // Tables ko Mtbl_Id ke mutabiq filter kar rahe hain
       final tablesQuery =
-          "SELECT Mtbl_Id, tables, table_status FROM HNFOODMULTAN_.dbo.Tables WHERE Mtbl_Id = $mtblId";
+          "SELECT Mtbl_Id, tables, table_status FROM $dbName.dbo.Tables WHERE Mtbl_Id = $mtblId";
 
       final tablesResult = await SqlConn.readData(tablesQuery);
 

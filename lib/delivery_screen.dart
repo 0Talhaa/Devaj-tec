@@ -1377,37 +1377,45 @@ class _DeliveryScreenState extends State<DeliveryScreen> with TickerProviderStat
                         ),
                         Expanded(
                           flex: 3,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove,
-                                    color: Colors.redAccent),
-                                onPressed: () =>
-                                    _decreaseItemQuantity(orderItem.itemId),
-                              ),
-                              Text(
-                                '${orderItem.quantity}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontFamily: 'Raleway',
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  iconSize: 20,
+                                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.remove, color: Colors.redAccent),
+                                  onPressed: () => _decreaseItemQuantity(orderItem.itemId),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add,
-                                    color: Color(0xFF75E5E2)),
-                                onPressed: () => _addItemToOrder({
-                                  'id': orderItem.itemId,
-                                  'item_name': orderItem.itemName,
-                                  'sale_price': orderItem.salePrice,
-                                  'tax_percent': orderItem.taxPercent,
-                                  'discount_percent':
-                                      orderItem.discountPercent,
-                                  'Comments': orderItem.comments,
-                                }),
-                              ),
-                            ],
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text(
+                                    '${orderItem.quantity}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontFamily: 'Raleway',
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  iconSize: 20,
+                                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.add, color: Color(0xFF75E5E2)),
+                                  onPressed: () => _addItemToOrder({
+                                    'id': orderItem.itemId,
+                                    'item_name': orderItem.itemName,
+                                    'sale_price': orderItem.salePrice,
+                                    'tax_percent': orderItem.taxPercent,
+                                    'discount_percent': orderItem.discountPercent,
+                                    'Comments': orderItem.comments,
+                                  }),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         Expanded(
@@ -1776,23 +1784,26 @@ Widget _buildDesktopLayout() {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Text('Tax:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                        Text(' ${baseTax.toStringAsFixed(1)}%',
-                                            style: const TextStyle(
-                                                color: Colors.lightGreen,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold)),
-                                        const SizedBox(width: 8),
-                                        const Text('Disc:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                        Text(' ${baseDiscount.toStringAsFixed(1)}%',
-                                            style: const TextStyle(
-                                                color: Colors.orange,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold)),
-                                      ],
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Text('Tax:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                          Text(' ${baseTax.toStringAsFixed(1)}%',
+                                              style: const TextStyle(
+                                                  color: Colors.lightGreen,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 4),
+                                          const Text('Disc:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                          Text(' ${baseDiscount.toStringAsFixed(1)}%',
+                                              style: const TextStyle(
+                                                  color: Colors.orange,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1895,45 +1906,48 @@ Widget _buildDesktopLayout() {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    'Tax:',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontFamily: 'Raleway',
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'Tax:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontFamily: 'Raleway',
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    ' ${baseTax.toStringAsFixed(1)}%',
-                                    style: const TextStyle(
-                                      color: Colors.lightGreen,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Raleway',
+                                    Text(
+                                      ' ${baseTax.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.lightGreen,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Disc:',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontFamily: 'Raleway',
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'Disc:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontFamily: 'Raleway',
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    ' ${baseDiscount.toStringAsFixed(1)}%',
-                                    style: const TextStyle(
-                                      color: Colors.orange,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Raleway',
+                                    Text(
+                                      ' ${baseDiscount.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Raleway',
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
